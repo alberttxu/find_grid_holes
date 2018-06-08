@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import sys
+from PyQt5 import QtCore
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction, 
                              QHBoxLayout, QVBoxLayout, QGridLayout,
                              QLabel, QScrollArea, QPushButton, QFileDialog)
@@ -13,16 +14,36 @@ class ImageViewer(QScrollArea):
         self.initUI(filename)
 
     def initUI(self, filename):
+        self.zoomScale = 1
         self.pixmap = QPixmap(filename)
         self.label = QLabel(self)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.label.sizeHint())
         self.setWidget(self.label)
 
-    def refresh(self, filename):
+    def loadPicture(self, filename):
+        self.zoomScale = 1
         self.pixmap.load(filename)
+        self.originalCopy = self.pixmap
         self.label.setPixmap(self.pixmap)
-        self.label.resize(self.label.sizeHint())
+        #self.label.resize(self.label.sizeHint())
+        self.label.resize(self.pixmap.size())
+
+    def _refresh(self):
+        self.pixmap = self.originalCopy.scaled(self.zoomScale * self.originalCopy.size(),
+                                         aspectRatioMode = QtCore.Qt.KeepAspectRatio)
+        self.label.setPixmap(self.pixmap)
+        self.label.resize(self.pixmap.size())
+
+    def zoomIn(self):
+        print('zoom in')
+        self.zoomScale += 0.1
+        self._refresh()
+
+    def zoomOut(self):
+        print('zoom out')
+        self.zoomScale -= 0.1
+        self._refresh()
 
 
 class Sidebar(QWidget):
@@ -39,11 +60,11 @@ class Sidebar(QWidget):
         b1.resize(b1.sizeHint())
         b2 = QPushButton('ok', self)
         b2.resize(b2.sizeHint())
-        template = ImageViewer('output.png')
-        template.setFixedHeight(200)
+        crop_template = ImageViewer('output.png')
+        crop_template.setFixedHeight(200)
         
         vlay = QVBoxLayout()
-        vlay.addWidget(template)
+        vlay.addWidget(crop_template)
         vlay.addWidget(b1)
         vlay.addWidget(b2)
         vlay.addStretch(1)
@@ -58,19 +79,24 @@ class MainWidget(QWidget):
 
     def initUI(self):
         self.sidebar = Sidebar()
-        #self.viewer = ImageViewer('mesh_6.jpg')
-        self.viewer = ImageViewer('')
+        self.viewer = ImageViewer()
         
         self.grid = QGridLayout()
-        self.grid.setSpacing(20)
+        self.grid.setSpacing(10)
         self.grid.addWidget(self.sidebar, 1, 0, 1, 1)
         self.grid.addWidget(self.viewer, 1, 1, 5, 5)
         self.setLayout(self.grid)
 
     def loadPicture(self, filename):
-        self.viewer.refresh(filename)
+        self.viewer.loadPicture(filename)
         
-
+    def viewZoomIn(self):
+        self.viewer.zoomIn()
+        
+    def viewZoomOut(self):
+        self.viewer.zoomOut()
+        
+        
 class Window(QMainWindow):
 
     def __init__(self):
@@ -81,14 +107,25 @@ class Window(QMainWindow):
         self.initUI()
 
     def initUI(self):
+        menubar = self.menuBar()
+        fileMenu = menubar.addMenu('File')
+        viewMenu = menubar.addMenu('View')
+
         openFile = QAction("Open File", self)
         openFile.setShortcut("Ctrl+O")
         openFile.setStatusTip("Open new File")
         openFile.triggered.connect(self.openFileDialog)
-
-        menubar = self.menuBar()
-        fileMenu = menubar.addMenu('&File')
         fileMenu.addAction(openFile)
+
+        zoomIn = QAction("Zoom In", self)
+        zoomIn.setShortcut("Ctrl+Plus") ## fix
+        #zoomIn.setShortcut("Ctrl++") ## fix
+        zoomIn.triggered.connect(self.viewZoomIn)
+        zoomOut = QAction("Zoom Out", self)
+        zoomOut.setShortcut("Ctrl+Minus") ## fix
+        zoomOut.triggered.connect(self.viewZoomOut)
+        viewMenu.addAction(zoomIn)
+        viewMenu.addAction(zoomOut)
 
         self.setGeometry(300, 300, 1000, 1000)
         self.setWindowTitle('Window')
@@ -96,10 +133,17 @@ class Window(QMainWindow):
 
     def openFileDialog(self):
         filename = QFileDialog.getOpenFileName(self, 'Open File', '/home/albertxu/git_projects/find_grid_holes')[0]
+        #filename = QFileDialog.getOpenFileName(self, 'Open File', '/')[0]
 
         print(filename)
         if filename:
             self.root.loadPicture(filename)
+
+    def viewZoomIn(self):
+        self.root.viewZoomIn()
+        
+    def viewZoomOut(self):
+        self.root.viewZoomOut()
         
 
 if __name__ == '__main__':
