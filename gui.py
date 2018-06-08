@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import sys
-from PyQt5 import QtCore
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction, 
                              QHBoxLayout, QVBoxLayout, QGridLayout,
                              QLabel, QScrollArea, QPushButton, QFileDialog)
-from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtGui import QPixmap, QKeySequence
 
 
 class ImageViewer(QScrollArea):
@@ -16,6 +16,7 @@ class ImageViewer(QScrollArea):
     def initUI(self, filename):
         self.zoomScale = 1
         self.pixmap = QPixmap(filename)
+        self.originalCopy = self.pixmap
         self.label = QLabel(self)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.label.sizeHint())
@@ -30,18 +31,17 @@ class ImageViewer(QScrollArea):
         self.label.resize(self.pixmap.size())
 
     def _refresh(self):
+        
         self.pixmap = self.originalCopy.scaled(self.zoomScale * self.originalCopy.size(),
-                                         aspectRatioMode = QtCore.Qt.KeepAspectRatio)
+                                         aspectRatioMode = Qt.KeepAspectRatio)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
 
     def zoomIn(self):
-        print('zoom in')
         self.zoomScale += 0.1
         self._refresh()
 
     def zoomOut(self):
-        print('zoom out')
         self.zoomScale -= 0.1
         self._refresh()
 
@@ -118,11 +118,10 @@ class Window(QMainWindow):
         fileMenu.addAction(openFile)
 
         zoomIn = QAction("Zoom In", self)
-        zoomIn.setShortcut("Ctrl+Plus") ## fix
-        #zoomIn.setShortcut("Ctrl++") ## fix
+        zoomIn.setShortcut(Qt.Key_Equal)
         zoomIn.triggered.connect(self.viewZoomIn)
         zoomOut = QAction("Zoom Out", self)
-        zoomOut.setShortcut("Ctrl+Minus") ## fix
+        zoomOut.setShortcut(Qt.Key_Minus)
         zoomOut.triggered.connect(self.viewZoomOut)
         viewMenu.addAction(zoomIn)
         viewMenu.addAction(zoomOut)
