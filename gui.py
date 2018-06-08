@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import sys
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction, 
-                             QHBoxLayout, QVBoxLayout, QPushButton, QLabel,
-                             QGridLayout, QFileDialog)
+                             QHBoxLayout, QVBoxLayout, QGridLayout,
+                             QLabel, QScrollArea, QPushButton, QFileDialog)
 from PyQt5.QtGui import QIcon, QPixmap
 
-class ImageViewer(QWidget):
 
-    def __init__(self, filename):
+class ImageViewer(QScrollArea):
+
+    def __init__(self, filename=''):
         super().__init__()
         self.initUI(filename)
 
@@ -15,11 +16,13 @@ class ImageViewer(QWidget):
         self.pixmap = QPixmap(filename)
         self.label = QLabel(self)
         self.label.setPixmap(self.pixmap)
-        #self.show()
+        self.label.resize(self.label.sizeHint())
+        self.setWidget(self.label)
 
     def refresh(self, filename):
         self.pixmap.load(filename)
         self.label.setPixmap(self.pixmap)
+        self.label.resize(self.label.sizeHint())
 
 
 class Sidebar(QWidget):
@@ -29,14 +32,21 @@ class Sidebar(QWidget):
         self.initUI()
 
     def initUI(self):
-        b1 = QPushButton('ok', self)
+        self.width = 230
+        self.setFixedWidth(self.width)
+
+        b1 = QPushButton('Generate autodoc file', self)
         b1.resize(b1.sizeHint())
         b2 = QPushButton('ok', self)
         b2.resize(b2.sizeHint())
+        template = ImageViewer('output.png')
+        template.setFixedHeight(200)
         
         vlay = QVBoxLayout()
+        vlay.addWidget(template)
         vlay.addWidget(b1)
         vlay.addWidget(b2)
+        vlay.addStretch(1)
         self.setLayout(vlay)
 
 
@@ -46,15 +56,15 @@ class MainWidget(QWidget):
         super().__init__()
         self.initUI()
 
-    def initUI(self, filename='mesh_6.jpg'):
+    def initUI(self):
         self.sidebar = Sidebar()
-        self.viewer = ImageViewer(filename)
-
+        #self.viewer = ImageViewer('mesh_6.jpg')
+        self.viewer = ImageViewer('')
+        
         self.grid = QGridLayout()
         self.grid.setSpacing(20)
         self.grid.addWidget(self.sidebar, 1, 0, 1, 1)
         self.grid.addWidget(self.viewer, 1, 1, 5, 5)
-        self.setLayout(self.grid)
         self.setLayout(self.grid)
 
     def loadPicture(self, filename):
@@ -67,10 +77,13 @@ class Window(QMainWindow):
         super().__init__()
         self.root = MainWidget()
         self.setCentralWidget(self.root)
+        self.statusBar()
         self.initUI()
 
     def initUI(self):
         openFile = QAction("Open File", self)
+        openFile.setShortcut("Ctrl+O")
+        openFile.setStatusTip("Open new File")
         openFile.triggered.connect(self.openFileDialog)
 
         menubar = self.menuBar()
