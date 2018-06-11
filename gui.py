@@ -3,7 +3,7 @@ import sys
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction, 
                              QHBoxLayout, QVBoxLayout, QGridLayout,
-                             QLabel, QScrollArea, QPushButton, QFileDialog)
+                             QLabel, QScrollArea, QPushButton, QFileDialog, QCheckBox, QSlider, QLCDNumber, QLineEdit)
 from PyQt5.QtGui import QPixmap, QKeySequence
 
 
@@ -56,19 +56,39 @@ class Sidebar(QWidget):
         self.width = 230
         self.setFixedWidth(self.width)
 
-        b1 = QPushButton('Generate autodoc file', self)
-        b1.resize(b1.sizeHint())
-        b2 = QPushButton('ok', self)
-        b2.resize(b2.sizeHint())
+        # widgets
         crop_template = ImageViewer('output.png')
         crop_template.setFixedHeight(200)
+        blur_template = QCheckBox('Blur template')
+        blur_img  = QCheckBox('Blur image')
+        buttonAutoDoc = QPushButton('Generate autodoc file')
+        buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
+        buttonPrintCoord = QPushButton('Print Coordinates')
+        buttonPrintCoord.resize(buttonPrintCoord.sizeHint())
+
+        slider = QSlider(Qt.Horizontal)
+        self.thresholdDisplay = QLineEdit()
+        slider.valueChanged.connect(self.changeThreshDisp)
+        threshold = QGridLayout()
+        threshold.addWidget(slider, 0, 0, 1, 1)
+        threshold.addWidget(self.thresholdDisplay, 1, 1, 1, 1)
         
+        # layout
         vlay = QVBoxLayout()
         vlay.addWidget(crop_template)
-        vlay.addWidget(b1)
-        vlay.addWidget(b2)
+        vlay.addWidget(blur_template)
+        vlay.addWidget(blur_img)
+        vlay.addWidget(QLabel('Threshold'))
+        vlay.addLayout(threshold)
+        #vlay.addWidget(slider)
+        #vlay.addWidget(self.thresholdDisplay)
+        vlay.addWidget(buttonAutoDoc)
+        vlay.addWidget(buttonPrintCoord)
         vlay.addStretch(1)
         self.setLayout(vlay)
+
+    def changeThreshDisp(self, i: int):
+        self.thresholdDisplay.setText(str(i))
 
 
 class MainWidget(QWidget):
