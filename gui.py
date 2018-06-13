@@ -77,35 +77,11 @@ class ImageViewerCrop(ImageViewer):
         origScaleCropWidth = int(currentQRect.width() / self.zoomScale)
         origScaleCropHeight = int(currentQRect.height() / self.zoomScale)
         # save crop
-        #cropQPixmap = self.label.pixmap().copy(
-        #            QRect(X, Y, currentQRect.width(), currentQRect.height()))
         cropQPixmap = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
                                                          origScaleCropHeight))
-        cropQPixmap.save('output.png')
-        self.parentWidget().sidebar.crop_template.loadPicture('output.png')
-
-        '''
-        buf = QBuffer()
-        buf.open(QBuffer.ReadWrite)
-        #cropQPixmap.save(buf, 'PNG')
-        pilImg = Image.open(io.BytesIO(buffer.data()))
-
-        import io
-        from PIL import Image
-        from PyQt5.QtGui import QImage
-        from PyQt5.QtCore import QBuffer
-
-        img = QImage("image.png")
-        buffer = QBuffer()
-        buffer.open(QBuffer.ReadWrite)
-        img.save(buffer, "PNG")
-        pil_im = Image.open(io.BytesIO(buffer.data()))
-        pil_im.show()
-
-        from PIL.ImageQt import ImageQt
-        qim = ImageQt(im)
-        pix = QtGui.QPixmap.fromImage(qim)
-        '''
+        cropViewer = self.parentWidget().sidebar.crop_template.label
+        cropViewer.setPixmap(cropQPixmap)
+        cropViewer.resize(cropQPixmap.size())
 
 class Sidebar(QWidget):
 
@@ -118,7 +94,7 @@ class Sidebar(QWidget):
         self.setFixedWidth(self.width)
 
         # widgets
-        self.crop_template = ImageViewer('output.png')
+        self.crop_template = ImageViewer()
         self.crop_template.setFixedHeight(200)
         blur_template = QCheckBox('Blur template')
         blur_img  = QCheckBox('Blur image')
@@ -214,7 +190,6 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == '__main__':
-
     app = QApplication(sys.argv)
     w = MainWindow()
     sys.exit(app.exec_())
