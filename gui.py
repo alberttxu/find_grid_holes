@@ -70,8 +70,8 @@ class ImageViewerCrop(ImageViewer):
         currentQRect = self.currentQRubberBand.geometry()
         self.currentQRubberBand.deleteLater()
         # calculate X and Y position in original image
-        X = self.horizontalScrollBar().value() + self.originQPoint.x()
-        Y = self.verticalScrollBar().value() + self.originQPoint.y()
+        X = self.horizontalScrollBar().value() + currentQRect.x()
+        Y = self.verticalScrollBar().value() + currentQRect.y()
         X = int(X / self.zoomScale)
         Y = int(Y / self.zoomScale)
         origScaleCropWidth = int(currentQRect.width() / self.zoomScale)
