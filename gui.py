@@ -18,6 +18,7 @@ class ImageViewer(QScrollArea):
         self.zoomScale = 1
         self.pixmap = QPixmap(filename)
         self.originalCopy = self.pixmap
+        # QPixmap needs label to resize
         self.label = QLabel(self)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.label.sizeHint())
@@ -26,12 +27,12 @@ class ImageViewer(QScrollArea):
     def loadPicture(self, filename):
         self.zoomScale = 1
         self.pixmap.load(filename)
+        # original copy for scaling & cropping
         self.originalCopy = self.pixmap
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
-        #print(self.pixmap.size())
 
-    def _refresh(self):
+    def _refresh(self): # used in zoomIn/Out
         self.pixmap = self.originalCopy.scaled(
                                      self.zoomScale * self.originalCopy.size(),
                                      aspectRatioMode=Qt.KeepAspectRatio)
@@ -54,25 +55,57 @@ class ImageViewerCrop(ImageViewer):
 
     def mousePressEvent(self, eventQMouseEvent):
         self.originQPoint = eventQMouseEvent.pos()
-        print(self.originQPoint)
+        #print(self.originQPoint)
         self.currentQRubberBand = QRubberBand(QRubberBand.Rectangle, self)
         self.currentQRubberBand.setGeometry(QRect(self.originQPoint, QSize()))
         self.currentQRubberBand.show()
 
     def mouseMoveEvent(self, eventQMouseEvent):
         # unnormalized QRect can have negative width/height
-        self.currentQRubberBand.setGeometry(QRect(self.originQPoint, eventQMouseEvent.pos()).normalized())
+        self.currentQRubberBand.setGeometry(
+                QRect(self.originQPoint, eventQMouseEvent.pos()).normalized())
 
     def mouseReleaseEvent(self, eventQMouseEvent):
         self.currentQRubberBand.hide()
         currentQRect = self.currentQRubberBand.geometry()
+        self.currentQRubberBand.deleteLater()
+        # calculate X and Y position in original image
         X = self.horizontalScrollBar().value() + self.originQPoint.x()
         Y = self.verticalScrollBar().value() + self.originQPoint.y()
-        self.currentQRubberBand.deleteLater()
-        cropQPixmap = self.label.pixmap().copy(QRect(X, Y, currentQRect.width(), currentQRect.height()))
+        X = int(X / self.zoomScale)
+        Y = int(Y / self.zoomScale)
+        origScaleCropWidth = int(currentQRect.width() / self.zoomScale)
+        origScaleCropHeight = int(currentQRect.height() / self.zoomScale)
+        # save crop
+        #cropQPixmap = self.label.pixmap().copy(
+        #            QRect(X, Y, currentQRect.width(), currentQRect.height()))
+        cropQPixmap = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
+                                                         origScaleCropHeight))
         cropQPixmap.save('output.png')
         self.parentWidget().sidebar.crop_template.loadPicture('output.png')
 
+        '''
+        buf = QBuffer()
+        buf.open(QBuffer.ReadWrite)
+        #cropQPixmap.save(buf, 'PNG')
+        pilImg = Image.open(io.BytesIO(buffer.data()))
+
+        import io
+        from PIL import Image
+        from PyQt5.QtGui import QImage
+        from PyQt5.QtCore import QBuffer
+
+        img = QImage("image.png")
+        buffer = QBuffer()
+        buffer.open(QBuffer.ReadWrite)
+        img.save(buffer, "PNG")
+        pil_im = Image.open(io.BytesIO(buffer.data()))
+        pil_im.show()
+
+        from PIL.ImageQt import ImageQt
+        qim = ImageQt(im)
+        pix = QtGui.QPixmap.fromImage(qim)
+        '''
 
 class Sidebar(QWidget):
 
@@ -137,7 +170,7 @@ class MainWidget(QWidget):
         self.setLayout(self.grid)
 
 
-class Window(QMainWindow):
+class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
@@ -167,7 +200,7 @@ class Window(QMainWindow):
         viewMenu.addAction(zoomOut)
 
         self.setGeometry(300, 300, 1000, 1000)
-        self.setWindowTitle('Window')
+        self.setWindowTitle('Title')
         self.show()
 
     def openFileDialog(self):
@@ -183,5 +216,5 @@ class Window(QMainWindow):
 if __name__ == '__main__':
 
     app = QApplication(sys.argv)
-    w = Window()
+    w = MainWindow()
     sys.exit(app.exec_())
