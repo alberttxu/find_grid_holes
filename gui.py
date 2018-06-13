@@ -29,12 +29,12 @@ class ImageViewer(QScrollArea):
         self.originalCopy = self.pixmap
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
+        #print(self.pixmap.size())
 
     def _refresh(self):
         self.pixmap = self.originalCopy.scaled(
-                                         self.zoomScale
-                                         * self.originalCopy.size(),
-                                         aspectRatioMode=Qt.KeepAspectRatio)
+                                     self.zoomScale * self.originalCopy.size(),
+                                     aspectRatioMode=Qt.KeepAspectRatio)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
 
@@ -52,23 +52,25 @@ class ImageViewerCrop(ImageViewer):
     def __init__(self, filename=''):
         super().__init__(filename)
 
-    def mousePressEvent (self, eventQMouseEvent):
+    def mousePressEvent(self, eventQMouseEvent):
         self.originQPoint = eventQMouseEvent.pos()
+        print(self.originQPoint)
         self.currentQRubberBand = QRubberBand(QRubberBand.Rectangle, self)
         self.currentQRubberBand.setGeometry(QRect(self.originQPoint, QSize()))
         self.currentQRubberBand.show()
 
-    def mouseMoveEvent (self, eventQMouseEvent):
-        self.currentQRubberBand.setGeometry(
-                QRect(self.originQPoint, eventQMouseEvent.pos()).normalized())
+    def mouseMoveEvent(self, eventQMouseEvent):
+        # unnormalized QRect can have negative width/height
+        self.currentQRubberBand.setGeometry(QRect(self.originQPoint, eventQMouseEvent.pos()).normalized())
 
-    def mouseReleaseEvent (self, eventQMouseEvent):
+    def mouseReleaseEvent(self, eventQMouseEvent):
         self.currentQRubberBand.hide()
         currentQRect = self.currentQRubberBand.geometry()
+        X = self.horizontalScrollBar().value() + self.originQPoint.x()
+        Y = self.verticalScrollBar().value() + self.originQPoint.y()
         self.currentQRubberBand.deleteLater()
-        cropQPixmap = self.label.pixmap().copy(currentQRect)
+        cropQPixmap = self.label.pixmap().copy(QRect(X, Y, currentQRect.width(), currentQRect.height()))
         cropQPixmap.save('output.png')
-
         self.parentWidget().sidebar.crop_template.loadPicture('output.png')
 
 
