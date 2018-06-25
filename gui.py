@@ -6,6 +6,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QLabel, QScrollArea, QPushButton, QFileDialog,
                              QCheckBox, QSlider, QLineEdit, QRubberBand)
 from PyQt5.QtGui import QPixmap, QKeySequence
+from search import find_holes
 
 
 class ImageViewer(QScrollArea):
@@ -18,23 +19,31 @@ class ImageViewer(QScrollArea):
         self.zoomScale = 1
         self.pixmap = QPixmap(filename)
         self.originalCopy = self.pixmap
+        self.currCopy = self.pixmap
         # QPixmap needs label to resize
         self.label = QLabel(self)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.label.sizeHint())
         self.setWidget(self.label)
 
-    def loadPicture(self, filename):
+    def loadPicture(self, img, fromMenu=True):
         self.zoomScale = 1
-        self.pixmap.load(filename)
+        if type(img) == str:
+            self.pixmap.load(img)
+        elif type(img) == QPixmap:
+            self.pixmap = img
+        else:
+            raise TypeError("ImageViewer can't load img of type %s" % type(img))
         # original copy for scaling & cropping
-        self.originalCopy = self.pixmap
+        if fromMenu:
+            self.originalCopy = self.pixmap
+        self.currCopy = self.pixmap
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
 
     def _refresh(self): # used in zoomIn/Out
-        self.pixmap = self.originalCopy.scaled(
-                                     self.zoomScale * self.originalCopy.size(),
+        self.pixmap = self.currCopy.scaled(
+                                     self.zoomScale * self.currCopy.size(),
                                      aspectRatioMode=Qt.KeepAspectRatio)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
@@ -55,33 +64,31 @@ class ImageViewerCrop(ImageViewer):
 
     def mousePressEvent(self, eventQMouseEvent):
         self.originQPoint = eventQMouseEvent.pos()
-        #print(self.originQPoint)
-        self.currentQRubberBand = QRubberBand(QRubberBand.Rectangle, self)
-        self.currentQRubberBand.setGeometry(QRect(self.originQPoint, QSize()))
-        self.currentQRubberBand.show()
+        self.rband = QRubberBand(QRubberBand.Rectangle, self)
+        self.rband.setGeometry(QRect(self.originQPoint, QSize()))
+        self.rband.show()
 
     def mouseMoveEvent(self, eventQMouseEvent):
         # unnormalized QRect can have negative width/height
-        self.currentQRubberBand.setGeometry(
-                QRect(self.originQPoint, eventQMouseEvent.pos()).normalized())
+        self.rband.setGeometry(
+                            QRect(2*self.originQPoint - eventQMouseEvent.pos(),
+                                  eventQMouseEvent.pos()).normalized())
 
     def mouseReleaseEvent(self, eventQMouseEvent):
-        self.currentQRubberBand.hide()
-        currentQRect = self.currentQRubberBand.geometry()
-        self.currentQRubberBand.deleteLater()
+        self.rband.hide()
+        currentQRect = self.rband.geometry()
         # calculate X and Y position in original image
         X = self.horizontalScrollBar().value() + currentQRect.x()
-        Y = self.verticalScrollBar().value() + currentQRect.y()
         X = int(X / self.zoomScale)
+        Y = self.verticalScrollBar().value() + currentQRect.y()
         Y = int(Y / self.zoomScale)
         origScaleCropWidth = int(currentQRect.width() / self.zoomScale)
         origScaleCropHeight = int(currentQRect.height() / self.zoomScale)
         # save crop
         cropQPixmap = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
                                                          origScaleCropHeight))
-        cropViewer = self.parentWidget().sidebar.crop_template.label
-        cropViewer.setPixmap(cropQPixmap)
-        cropViewer.resize(cropQPixmap.size())
+        self.parentWidget().sidebar.crop_template.loadPicture(cropQPixmap)
+
 
 class Sidebar(QWidget):
 
@@ -96,37 +103,56 @@ class Sidebar(QWidget):
         # widgets
         self.crop_template = ImageViewer()
         self.crop_template.setFixedHeight(200)
-        blur_template = QCheckBox('Blur template')
-        blur_img  = QCheckBox('Blur image')
+        cbBlurTemp = QCheckBox('Blur template')
+        cbBlurImg  = QCheckBox('Blur image')
         buttonAutoDoc = QPushButton('Generate autodoc file')
         buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
         buttonPrintCoord = QPushButton('Print Coordinates')
         buttonPrintCoord.resize(buttonPrintCoord.sizeHint())
-        slider = QSlider(Qt.Horizontal)
-        self.thresholdDisplay = QLineEdit()
-        slider.valueChanged.connect(self.changeThreshDisp)
+        self.slider = QSlider(Qt.Horizontal)
+        self.sldPrec = 3
+        self.slider.setMaximum(10**self.sldPrec)
+        self.slider.valueChanged.connect(self._setThreshDisp)
+        self.threshDisp = QLineEdit()
+        self.threshDisp.returnPressed.connect(
+                          lambda: self._setSliderValue(self.threshDisp.text()))
+        buttonSearch = QPushButton('Search')
+        buttonSearch.clicked.connect(self.matchTemplate)
 
         # layout
         vlay = QVBoxLayout()
         vlay.addWidget(self.crop_template)
-        vlay.addWidget(blur_template)
-        vlay.addWidget(blur_img)
+        vlay.addWidget(cbBlurTemp)
+        vlay.addWidget(cbBlurImg)
         vlay.addWidget(QLabel())
-
         vlay.addWidget(QLabel('Threshold'))
         threshold = QGridLayout()
-        threshold.addWidget(slider, 0, 0, 1, 1)
-        threshold.addWidget(self.thresholdDisplay, 1, 0, 1, 1)
+        threshold.addWidget(self.slider, 0, 0, 1, 1)
+        threshold.addWidget(self.threshDisp, 1, 0, 1, 1)
+        threshold.addWidget(buttonSearch)
         threshold.addWidget(QLabel())
         vlay.addLayout(threshold)
-
         vlay.addWidget(buttonAutoDoc)
         vlay.addWidget(buttonPrintCoord)
         vlay.addStretch(1)
         self.setLayout(vlay)
 
-    def changeThreshDisp(self, i: int):
-        self.thresholdDisplay.setText("%.2f" % (i/100))
+    def _setThreshDisp(self, i: int):
+        self.threshDisp.setText("{:.{}f}".format(i / 10**self.sldPrec,
+                                                 self.sldPrec))
+
+    def _setSliderValue(self, s: str):
+        try:
+            self.slider.setValue(int(10**self.sldPrec * float(s)))
+        except ValueError:
+            pass
+
+    def matchTemplate(self):
+        print(self.crop_template.pixmap.size())
+        coords, qpixmap = find_holes(self.parentWidget().viewer.originalCopy,
+                                    self.crop_template.pixmap)
+        print(coords)
+        self.parentWidget().viewer.loadPicture(qpixmap, fromMenu=False)
 
 
 class MainWidget(QWidget):
@@ -180,9 +206,7 @@ class MainWindow(QMainWindow):
         self.show()
 
     def openFileDialog(self):
-        filename = QFileDialog.getOpenFileName(self, 'Open File',
-                            '/home/albertxu/git_projects/find_grid_holes')[0]
-        #filename = QFileDialog.getOpenFileName(self, 'Open File', '/')[0]
+        filename = QFileDialog.getOpenFileName(self, 'Open File')[0]
 
         print(filename)
         if filename:

@@ -1,3 +1,7 @@
 *.swp
 .ipynb_checkpoints/
 python3env/
+build/
+dist/
+env/
+__pycache__/
