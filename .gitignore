@@ -1,4 +1,5 @@
 *.swp
+*.spec
 .ipynb_checkpoints/
 python3env/
 build/
