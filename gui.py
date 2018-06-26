@@ -18,8 +18,8 @@ class ImageViewer(QScrollArea):
     def initUI(self, filename):
         self.zoomScale = 1
         self.pixmap = QPixmap(filename)
-        self.originalCopy = self.pixmap
-        self.currCopy = self.pixmap
+        self.originalCopy = self.pixmap # for cropping
+        self.displayCopy = self.pixmap # display search matches
         # QPixmap needs label to resize
         self.label = QLabel(self)
         self.label.setPixmap(self.pixmap)
@@ -27,23 +27,22 @@ class ImageViewer(QScrollArea):
         self.setWidget(self.label)
 
     def loadPicture(self, img, fromMenu=True):
-        self.zoomScale = 1
+        if fromMenu:
+            self.originalCopy = self.pixmap
+            self.zoomScale = 1
         if type(img) == str:
             self.pixmap.load(img)
         elif type(img) == QPixmap:
             self.pixmap = img
         else:
-            raise TypeError("ImageViewer can't load img of type %s" % type(img))
-        # original copy for scaling & cropping
-        if fromMenu:
-            self.originalCopy = self.pixmap
-        self.currCopy = self.pixmap
+            raise TypeError(f"ImageViewer can't load img of type {type(img)}")
+        self.displayCopy = self.pixmap
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
 
     def _refresh(self): # used in zoomIn/Out
-        self.pixmap = self.currCopy.scaled(
-                                     self.zoomScale * self.currCopy.size(),
+        self.pixmap = self.displayCopy.scaled(
+                                     self.zoomScale * self.displayCopy.size(),
                                      aspectRatioMode=Qt.KeepAspectRatio)
         self.label.setPixmap(self.pixmap)
         self.label.resize(self.pixmap.size())
@@ -77,11 +76,14 @@ class ImageViewerCrop(ImageViewer):
     def mouseReleaseEvent(self, eventQMouseEvent):
         self.rband.hide()
         currentQRect = self.rband.geometry()
+        # handle misclick
+        if currentQRect.height() < 10 and currentQRect.width() < 10:
+            return
         # calculate X and Y position in original image
-        X = self.horizontalScrollBar().value() + currentQRect.x()
-        X = int(X / self.zoomScale)
-        Y = self.verticalScrollBar().value() + currentQRect.y()
-        Y = int(Y / self.zoomScale)
+        X = int((self.horizontalScrollBar().value() + currentQRect.x())
+                / self.zoomScale)
+        Y = int((self.verticalScrollBar().value() + currentQRect.y())
+                / self.zoomScale)
         origScaleCropWidth = int(currentQRect.width() / self.zoomScale)
         origScaleCropHeight = int(currentQRect.height() / self.zoomScale)
         # save crop
@@ -99,31 +101,33 @@ class Sidebar(QWidget):
     def initUI(self):
         self.width = 230
         self.setFixedWidth(self.width)
+        self.sldPrec = 3
+        self.thresholdVal = 0.8
 
         # widgets
         self.crop_template = ImageViewer()
         self.crop_template.setFixedHeight(200)
-        cbBlurTemp = QCheckBox('Blur template')
-        cbBlurImg  = QCheckBox('Blur image')
+        self.cbBlurTemp = QCheckBox('Blur template')
+        self.cbBlurImg  = QCheckBox('Blur image')
         buttonAutoDoc = QPushButton('Generate autodoc file')
         buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
         buttonPrintCoord = QPushButton('Print Coordinates')
         buttonPrintCoord.resize(buttonPrintCoord.sizeHint())
         self.slider = QSlider(Qt.Horizontal)
-        self.sldPrec = 3
         self.slider.setMaximum(10**self.sldPrec)
         self.slider.valueChanged.connect(self._setThreshDisp)
         self.threshDisp = QLineEdit()
         self.threshDisp.returnPressed.connect(
                           lambda: self._setSliderValue(self.threshDisp.text()))
+        self.slider.setValue(self.thresholdVal * 10**self.sldPrec)
         buttonSearch = QPushButton('Search')
         buttonSearch.clicked.connect(self.matchTemplate)
 
         # layout
         vlay = QVBoxLayout()
         vlay.addWidget(self.crop_template)
-        vlay.addWidget(cbBlurTemp)
-        vlay.addWidget(cbBlurImg)
+        vlay.addWidget(self.cbBlurTemp)
+        vlay.addWidget(self.cbBlurImg)
         vlay.addWidget(QLabel())
         vlay.addWidget(QLabel('Threshold'))
         threshold = QGridLayout()
@@ -138,21 +142,30 @@ class Sidebar(QWidget):
         self.setLayout(vlay)
 
     def _setThreshDisp(self, i: int):
-        self.threshDisp.setText("{:.{}f}".format(i / 10**self.sldPrec,
-                                                 self.sldPrec))
+        self.thresholdVal = float("{:.{}f}".format(i / 10**self.sldPrec,
+                                                   self.sldPrec))
+        self.threshDisp.setText(str(self.thresholdVal))
+        #print(self.thresholdVal)
 
     def _setSliderValue(self, s: str):
         try:
             self.slider.setValue(int(10**self.sldPrec * float(s)))
+            self.thresholdVal = float("{:.{}f}".format(float(s), self.sldPrec))
+            #print(self.thresholdVal)
         except ValueError:
             pass
 
     def matchTemplate(self):
-        print(self.crop_template.pixmap.size())
-        coords, qpixmap = find_holes(self.parentWidget().viewer.originalCopy,
-                                    self.crop_template.pixmap)
-        print(coords)
-        self.parentWidget().viewer.loadPicture(qpixmap, fromMenu=False)
+        #print(self.crop_template.pixmap.size())
+        coords, template, img = find_holes(
+                                     self.parentWidget().viewer.originalCopy,
+                                     self.crop_template.pixmap,
+                                     threshold=self.thresholdVal,
+                                     blur_template=self.cbBlurTemp.isChecked(),
+                                     blur_img=self.cbBlurImg.isChecked())
+        #print(coords)
+        self.crop_template.loadPicture(template, fromMenu=False)
+        self.parentWidget().viewer.loadPicture(img, fromMenu=False)
 
 
 class MainWidget(QWidget):

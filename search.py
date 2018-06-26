@@ -34,10 +34,10 @@ def find_holes(img, template, threshold=0.8, blur_template=False, blur_img=False
     template = QPixmapToPilRGB(template)
 
     if blur_img:
-        img = img.filter(ImageFilter.BLUR)
+        img = img.filter(ImageFilter.GaussianBlur)
     img = np.array(img)
     if blur_template:
-        template = template.filter(ImageFilter.BLUR)
+        template = template.filter(ImageFilter.GaussianBlur)
     template = np.array(template)
 
     h, w, _ = template.shape
@@ -49,11 +49,13 @@ def find_holes(img, template, threshold=0.8, blur_template=False, blur_img=False
     for pt in zip(*loc[::-1]):
         if pt not in past_points:
             # pt1 = top left corner; pt2 = bottom right corner
-            cv2.rectangle(img, pt1=pt, pt2=(pt[0]+w, pt[1]+h), color=(0,0,255), thickness=2)
+            cv2.rectangle(img, pt1=pt, pt2=(pt[0]+w, pt[1]+h), color=(0,0,255,255), thickness=2)
             hole_coordinates.append((pt[0] + w//2, pt[1] + h//2))
-            past_points.update(nearby_points(pt))
+            past_points.update(nearby_points(pt, radius=(int(max(h,w)/3))))
 
-    return hole_coordinates, QPixmap.fromImage(ImageQt(Image.fromarray(img)))
+    return (hole_coordinates,
+            QPixmap.fromImage(ImageQt(Image.fromarray(template))),
+            QPixmap.fromImage(ImageQt(Image.fromarray(img))))
 
 
 if __name__ == '__main__':
