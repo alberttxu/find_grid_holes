@@ -26,14 +26,14 @@ class ImageViewer(QScrollArea):
         self._refresh()
         self.setWidget(self.label)
 
-    def loadPicture(self, img, fromMenu=False):
+    def loadPicture(self, img, newImg=False):
         if type(img) == str:
             self.pixmap.load(img)
         elif type(img) == QPixmap:
             self.pixmap = img
         else:
             raise TypeError(f"ImageViewer can't load img of type {type(img)}")
-        if fromMenu:
+        if newImg:
             self.originalCopy = self.pixmap
             self.blurredCopy = gaussianBlur(self.originalCopy)
             self.zoomScale = 1
@@ -88,7 +88,7 @@ class ImageViewerCrop(ImageViewer):
                                                          origScaleCropHeight))
         self.parentWidget().sidebar.cbBlurTemp.setCheckState(Qt.Unchecked)
         self.parentWidget().sidebar.crop_template.loadPicture(cropQPixmap,
-                                                              fromMenu=True)
+                                                              newImg=True)
 
 
 class Sidebar(QWidget):
@@ -247,7 +247,8 @@ class MainWindow(QMainWindow):
 
         print(filename)
         if filename:
-            self.root.viewer.loadPicture(filename, fromMenu=True)
+            self.root.viewer.loadPicture(filename, newImg=True)
+            self.root.sidebar.cbBlurImg.setCheckState(Qt.Unchecked)
 
 
 if __name__ == '__main__':
