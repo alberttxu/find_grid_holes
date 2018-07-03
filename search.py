@@ -8,58 +8,59 @@ from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import QBuffer
 
 
-def QPixmapToPilRGB(qpixmap):
+def npToQpixmap(ndArr):
+    return QPixmap.fromImage(ImageQt(Image.fromarray(ndArr)))
+
+def QPixmapToPilRGBA(qpixmap):
     buf = QBuffer()
     buf.open(QBuffer.ReadWrite)
     qpixmap.save(buf, "PNG")
     return Image.open(io.BytesIO(buf.data().data())).convert('RGBA')
 
 def gaussianBlur(qpixmap):
-    pilImg = QPixmapToPilRGB(qpixmap).filter(ImageFilter.GaussianBlur)
+    pilImg = QPixmapToPilRGBA(qpixmap).filter(ImageFilter.GaussianBlur)
     return QPixmap.fromImage(ImageQt(pilImg))
 
 # prevent including the same hole multiple times
-def nearby_points(pt, radius=10):
+def withinRadius(pt, coords, radius):
     x, y = pt
-    s = set()
-    for i in range(radius):
-        for j in range(radius):
-            s.add((x+i, y+j))
-            s.add((x+i, y-j))
-            s.add((x-i, y+j))
-            s.add((x-i, y-j))
-    return s
+    if len(coords) == 0:
+        return False
+    for c in coords:
+        distance = ((c[0]-x)**2 + (c[1]-y)**2) ** 0.5
+        if distance < radius:
+            return True
+    return False
 
 # modified from OpenCV docs
 # https://docs.opencv.org/3.4/d4/dc6/tutorial_py_template_matching.html
 def find_holes(qpixImg, qpixTemplate, threshold=0.8,
-               blur_template=False, blur_img=False):
+               blurTemplate=False, blurImg=False):
     """returns QPixmap with green square around matches"""
-    img = QPixmapToPilRGB(qpixImg)
-    template = QPixmapToPilRGB(qpixTemplate)
+    img = QPixmapToPilRGBA(qpixImg)
+    template = QPixmapToPilRGBA(qpixTemplate)
 
-    if blur_img:
+    if blurImg:
         img = img.filter(ImageFilter.GaussianBlur)
     img = np.array(img)
-    if blur_template:
+    if blurTemplate:
         template = template.filter(ImageFilter.GaussianBlur)
     template = np.array(template)
 
-    h, w, _ = template.shape
-    correlation_scores = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-    loc = np.where(correlation_scores >= threshold)
+    h, w, *_ = template.shape
+    xcorrScores = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+    loc = zip(*np.where(xcorrScores >= threshold)[::-1])
+    scoresIndex = [(x, y, xcorrScores[y][x]) for x, y in loc]
+    scoresIndex.sort(key=lambda a: a[2], reverse=True)
 
-    hole_coordinates = []
-    past_points = set()
-    for pt in zip(*loc[::-1]):
-        if pt not in past_points:
+    matches = []
+    pastPoints = []
+    for x, y, _ in scoresIndex:
+        if not withinRadius((x,y), pastPoints, radius=max(h,w)):
             # pt1 = top left corner; pt2 = bottom right corner
-            cv2.rectangle(img, pt1=pt, pt2=(pt[0]+w, pt[1]+h),
+            cv2.rectangle(img, pt1=(x,y), pt2=(x+w, y+h),
                           color=(0,0,255,255), thickness=2)
-            hole_coordinates.append((pt[0] + w//2, pt[1] + h//2))
-            past_points.update(nearby_points(pt, radius=(int(max(h,w)/3))))
+            matches.append((x + w//2, y + h//2))
+            pastPoints.append((x,y))
 
-    return (hole_coordinates,
-            QPixmap.fromImage(ImageQt(Image.fromarray(template))),
-            QPixmap.fromImage(ImageQt(Image.fromarray(img))))
-
+    return matches, npToQpixmap(template), npToQpixmap(img)

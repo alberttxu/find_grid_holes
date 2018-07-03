@@ -32,7 +32,8 @@ class ImageViewer(QScrollArea):
         elif type(img) == QPixmap:
             self.pixmap = img
         else:
-            raise TypeError(f"ImageViewer can't load img of type {type(img)}")
+            raise TypeError("ImageViewer can't load img of type %s"
+                            % type(img))
         if newImg:
             self.originalCopy = self.pixmap
             self.blurredCopy = gaussianBlur(self.originalCopy)
@@ -179,8 +180,8 @@ class Sidebar(QWidget):
                                      self.parentWidget().viewer.originalCopy,
                                      self.crop_template.pixmap,
                                      threshold=self.thresholdVal,
-                                     blur_template=self.cbBlurTemp.isChecked(),
-                                     blur_img=self.cbBlurImg.isChecked())
+                                     blurTemplate=self.cbBlurTemp.isChecked(),
+                                     blurImg=self.cbBlurImg.isChecked())
         self.coords = coords
         self.crop_template.loadPicture(template)
         self.parentWidget().viewer.loadPicture(img)
