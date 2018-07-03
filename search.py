@@ -49,8 +49,8 @@ def find_holes(qpixImg, qpixTemplate, threshold=0.8,
 
     h, w, *_ = template.shape
     xcorrScores = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
-    loc = zip(*np.where(xcorrScores >= threshold)[::-1])
-    scoresIndex = [(x, y, xcorrScores[y][x]) for x, y in loc]
+    loc = zip(*np.where(xcorrScores >= threshold))
+    scoresIndex = [(x, y, xcorrScores[y][x]) for y, x in loc]
     scoresIndex.sort(key=lambda a: a[2], reverse=True)
 
     matches = []
