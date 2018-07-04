@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
+import io
 import sys
-from PyQt5.QtCore import Qt, QRect, QSize
+import numpy as np
+from PyQt5.QtCore import Qt, QRect, QSize, QBuffer
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QHBoxLayout, QVBoxLayout, QGridLayout,
                              QLabel, QScrollArea, QPushButton, QFileDialog,
                              QCheckBox, QSlider, QLineEdit, QRubberBand)
-from PyQt5.QtGui import QPixmap, QKeySequence
-from search import find_holes, gaussianBlur
+from PyQt5.QtGui import QPixmap, QKeySequence, QImage
+from PIL import Image, ImageFilter
+from PIL.ImageQt import ImageQt
+from search import find_holes
+
+
+def QPixmapToPilRGBA(qpixmap):
+    buf = QBuffer()
+    buf.open(QBuffer.ReadWrite)
+    qpixmap.save(buf, "PNG")
+    return Image.open(io.BytesIO(buf.data().data())).convert('RGBA')
+
+def gaussianBlur(qpixmap):
+    pilImg = QPixmapToPilRGBA(qpixmap).filter(ImageFilter.GaussianBlur)
+    return QPixmap.fromImage(ImageQt(pilImg))
 
 
 class ImageViewer(QScrollArea):
@@ -17,36 +32,38 @@ class ImageViewer(QScrollArea):
 
     def initUI(self, filename):
         self.zoomScale = 1
-        self.pixmap = QPixmap(filename) # for resizing
-        self.originalCopy = self.pixmap # for cropping
-        self.searchCopy = self.pixmap # display search matches
-        self.blurredCopy = self.pixmap
-        # QPixmap needs label to resize
+        self.img = QImage(filename) # for resizing
+        self.originalCopy = self.img # for cropping
+        self.searchCopy = self.img # display search matches
+        self.blurredCopy = self.img
+        # QImage needs label to resize
         self.label = QLabel(self)
         self._refresh()
         self.setWidget(self.label)
 
     def loadPicture(self, img, newImg=False):
         if type(img) == str:
-            self.pixmap.load(img)
+            self.img.load(img)
+        elif type(img) == QImage:
+            self.img = img
         elif type(img) == QPixmap:
-            self.pixmap = img
+            self.img = img.toImage()
         else:
             raise TypeError("ImageViewer can't load img of type %s"
                             % type(img))
         if newImg:
-            self.originalCopy = self.pixmap
+            self.originalCopy = self.img
             self.blurredCopy = gaussianBlur(self.originalCopy)
             self.zoomScale = 1
-        self.searchCopy = self.pixmap
+        self.searchCopy = self.img
         self._refresh()
 
     def _refresh(self):
-        self.pixmap = self.searchCopy.scaled(
+        self.img = self.searchCopy.scaled(
                                      self.zoomScale * self.searchCopy.size(),
                                      aspectRatioMode=Qt.KeepAspectRatio)
-        self.label.setPixmap(self.pixmap)
-        self.label.resize(self.pixmap.size())
+        self.label.setPixmap(QPixmap(self.img))
+        self.label.resize(self.img.size())
 
     def zoomIn(self):
         self.zoomScale += 0.1
@@ -85,10 +102,10 @@ class ImageViewerCrop(ImageViewer):
         origScaleCropWidth = int(crop.width() / self.zoomScale)
         origScaleCropHeight = int(crop.height() / self.zoomScale)
         # save crop
-        cropQPixmap = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
+        cropQImage = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
                                                          origScaleCropHeight))
         self.parentWidget().sidebar.cbBlurTemp.setCheckState(Qt.Unchecked)
-        self.parentWidget().sidebar.crop_template.loadPicture(cropQPixmap,
+        self.parentWidget().sidebar.crop_template.loadPicture(cropQImage,
                                                               newImg=True)
 
 
@@ -175,15 +192,15 @@ class Sidebar(QWidget):
                                        self.parentWidget().viewer.originalCopy)
 
     def templateSearch(self):
-        #print(self.crop_template.pixmap.size())
-        coords, template, img = find_holes(
-                                     self.parentWidget().viewer.originalCopy,
-                                     self.crop_template.pixmap,
-                                     threshold=self.thresholdVal,
-                                     blurTemplate=self.cbBlurTemp.isChecked(),
-                                     blurImg=self.cbBlurImg.isChecked())
-        self.coords = coords
-        self.crop_template.loadPicture(template)
+        templ = (self.crop_template.blurredCopy if self.cbBlurTemp.isChecked()
+                    else self.crop_template.originalCopy)
+        img = (self.parentWidget().viewer.blurredCopy
+               if self.cbBlurImg.isChecked()
+               else self.parentWidget().viewer.originalCopy)
+
+        self.coords, img = find_holes(np.array(QPixmapToPilRGBA(img)),
+                                      np.array(QPixmapToPilRGBA(templ)),
+                                      threshold=self.thresholdVal)
         self.parentWidget().viewer.loadPicture(img)
 
     def printCoordinates(self):
