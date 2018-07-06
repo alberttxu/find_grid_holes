@@ -7,21 +7,24 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QHBoxLayout, QVBoxLayout, QGridLayout,
                              QLabel, QScrollArea, QPushButton, QFileDialog,
                              QCheckBox, QSlider, QLineEdit, QRubberBand)
-from PyQt5.QtGui import QPixmap, QKeySequence, QImage
+from PyQt5.QtGui import QImage, QPixmap, QKeySequence
 from PIL import Image, ImageFilter
 from PIL.ImageQt import ImageQt
 from search import find_holes
 
 
-def QPixmapToPilRGBA(qpixmap):
+def npToQImage(ndArr):
+    return QImage(ImageQt(Image.fromarray(ndArr)))
+
+def QImageToPilRGBA(qimg):
     buf = QBuffer()
     buf.open(QBuffer.ReadWrite)
-    qpixmap.save(buf, "PNG")
+    qimg.save(buf, "PNG")
     return Image.open(io.BytesIO(buf.data().data())).convert('RGBA')
 
-def gaussianBlur(qpixmap):
-    pilImg = QPixmapToPilRGBA(qpixmap).filter(ImageFilter.GaussianBlur)
-    return QPixmap.fromImage(ImageQt(pilImg))
+def gaussianBlur(qimg):
+    pilImg = QImageToPilRGBA(qimg).filter(ImageFilter.GaussianBlur)
+    return QImage(ImageQt(pilImg))
 
 
 class ImageViewer(QScrollArea):
@@ -47,6 +50,7 @@ class ImageViewer(QScrollArea):
         elif type(img) == QImage:
             self.img = img
         elif type(img) == QPixmap:
+            print('qpixmap loaded')
             self.img = img.toImage()
         else:
             raise TypeError("ImageViewer can't load img of type %s"
@@ -70,6 +74,7 @@ class ImageViewer(QScrollArea):
                                      aspectRatioMode=Qt.KeepAspectRatio)
         self.label.setPixmap(QPixmap(self.img))
         self.label.resize(self.img.size())
+        self.label.repaint(self.label.rect())
 
     def zoomIn(self):
         self.zoomScale += 0.1
@@ -195,9 +200,10 @@ class Sidebar(QWidget):
                if self.cbBlurImg.isChecked()
                else self.parentWidget().viewer.originalCopy)
 
-        self.coords, img = find_holes(np.array(QPixmapToPilRGBA(img)),
-                                      np.array(QPixmapToPilRGBA(templ)),
+        self.coords, img_ndArr = find_holes(np.array(QImageToPilRGBA(img)),
+                                      np.array(QImageToPilRGBA(templ)),
                                       threshold=self.thresholdVal)
+        img = npToQImage(img_ndArr)
         self.parentWidget().viewer.loadPicture(img)
 
     def printCoordinates(self):
