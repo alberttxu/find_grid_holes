@@ -57,6 +57,7 @@ class ImageViewer(QScrollArea):
                             % type(img))
         if newImg:
             self.originalCopy = self.img
+            print(self.originalCopy.rect())
             self.blurredCopy = gaussianBlur(self.originalCopy)
             self.zoomScale = 1
         self.searchCopy = self.img
