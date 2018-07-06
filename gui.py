@@ -58,6 +58,12 @@ class ImageViewer(QScrollArea):
         self.searchCopy = self.img
         self._refresh()
 
+    def toggleBlur(self, toggle):
+        if toggle:
+            self.loadPicture(self.blurredCopy)
+        else:
+            self.loadPicture(self.originalCopy)
+
     def _refresh(self):
         self.img = self.searchCopy.scaled(
                                      self.zoomScale * self.searchCopy.size(),
@@ -104,9 +110,9 @@ class ImageViewerCrop(ImageViewer):
         # save crop
         cropQImage = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
                                                          origScaleCropHeight))
-        self.parentWidget().sidebar.cbBlurTemp.setCheckState(Qt.Unchecked)
-        self.parentWidget().sidebar.crop_template.loadPicture(cropQImage,
-                                                              newImg=True)
+        sb = self.parentWidget().sidebar
+        sb.cbBlurTemp.setCheckState(Qt.Unchecked)
+        sb.crop_template.loadPicture(cropQImage, newImg=True)
 
 
 class Sidebar(QWidget):
@@ -167,7 +173,6 @@ class Sidebar(QWidget):
         self.thresholdVal = float("{:.{}f}".format(i / 10**self.sldPrec,
                                                    self.sldPrec))
         self.threshDisp.setText(str(self.thresholdVal))
-        #print(self.thresholdVal)
 
     def _setSliderValue(self, s: str):
         try:
@@ -178,18 +183,10 @@ class Sidebar(QWidget):
             pass
 
     def blurTemp(self):
-        if self.cbBlurTemp.isChecked():
-            self.crop_template.loadPicture(self.crop_template.blurredCopy)
-        else:
-            self.crop_template.loadPicture(self.crop_template.originalCopy)
+        self.crop_template.toggleBlur(self.cbBlurTemp.isChecked())
 
     def blurImg(self):
-        if self.cbBlurImg.isChecked():
-            self.parentWidget().viewer.loadPicture(
-                                       self.parentWidget().viewer.blurredCopy)
-        else:
-            self.parentWidget().viewer.loadPicture(
-                                       self.parentWidget().viewer.originalCopy)
+        self.parentWidget().viewer.toggleBlur(self.cbBlurImg.isChecked())
 
     def templateSearch(self):
         templ = (self.crop_template.blurredCopy if self.cbBlurTemp.isChecked()
