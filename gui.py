@@ -24,7 +24,7 @@ def QImageToPilRGBA(qimg):
 
 def gaussianBlur(qimg):
     pilImg = QImageToPilRGBA(qimg).filter(ImageFilter.GaussianBlur)
-    return QImage(ImageQt(pilImg))
+    return QPixmap.fromImage(ImageQt(pilImg))
 
 
 class ImageViewer(QScrollArea):
