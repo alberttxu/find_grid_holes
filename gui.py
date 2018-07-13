@@ -24,7 +24,7 @@ def QImageToPilRGBA(qimg):
 
 def gaussianBlur(qimg):
     pilImg = QImageToPilRGBA(qimg).filter(ImageFilter.GaussianBlur)
-    return QPixmap.fromImage(ImageQt(pilImg))
+    return QPixmap.fromImage(ImageQt(pilImg)).toImage()
 
 
 class ImageViewer(QScrollArea):
@@ -57,7 +57,6 @@ class ImageViewer(QScrollArea):
                             % type(img))
         if newImg:
             self.originalCopy = self.img
-            print(self.originalCopy.rect())
             self.blurredCopy = gaussianBlur(self.originalCopy)
             self.zoomScale = 1
         self.searchCopy = self.img
@@ -75,7 +74,7 @@ class ImageViewer(QScrollArea):
                                      aspectRatioMode=Qt.KeepAspectRatio)
         self.label.setPixmap(QPixmap(self.img))
         self.label.resize(self.img.size())
-        self.label.repaint(self.label.rect())
+        self.label.repaint()
 
     def zoomIn(self):
         self.zoomScale += 0.1
@@ -184,7 +183,6 @@ class Sidebar(QWidget):
         try:
             self.slider.setValue(int(10**self.sldPrec * float(s)))
             self.thresholdVal = float("{:.{}f}".format(float(s), self.sldPrec))
-            #print(self.thresholdVal)
         except ValueError:
             pass
 
