@@ -4,15 +4,17 @@ import sys
 import numpy as np
 from PyQt5.QtCore import Qt, QRect, QSize, QBuffer
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
-                             QHBoxLayout, QVBoxLayout, QGridLayout,
-                             QLabel, QScrollArea, QPushButton, QFileDialog,
-                             QCheckBox, QSlider, QLineEdit, QRubberBand)
+                             QHBoxLayout, QVBoxLayout, QGridLayout, QLabel,
+                             QScrollArea, QPushButton, QFileDialog, QCheckBox,
+                             QSlider, QLineEdit, QRubberBand, QMessageBox,
+                             QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap, QKeySequence
 from PIL import Image, ImageFilter
 from PIL.ImageQt import ImageQt
 from search import find_holes
+from autodoc import NavFilePoint, isValidAutodoc
 
-
+# image data manipulation
 def npToQImage(ndArr):
     return QImage(ImageQt(Image.fromarray(ndArr)))
 
@@ -25,6 +27,12 @@ def QImageToPilRGBA(qimg):
 def gaussianBlur(qimg):
     pilImg = QImageToPilRGBA(qimg).filter(ImageFilter.GaussianBlur)
     return QPixmap.fromImage(ImageQt(pilImg)).toImage()
+
+# popup messages
+def popup(parent, message):
+    messagebox = QMessageBox(parent)
+    messagebox.setText(message)
+    messagebox.show()
 
 
 class ImageViewer(QScrollArea):
@@ -49,9 +57,6 @@ class ImageViewer(QScrollArea):
             self.img.load(img)
         elif type(img) == QImage:
             self.img = img
-        elif type(img) == QPixmap:
-            print('qpixmap loaded')
-            self.img = img.toImage()
         else:
             raise TypeError("ImageViewer can't load img of type %s"
                             % type(img))
@@ -154,7 +159,7 @@ class Sidebar(QWidget):
                           lambda: self._setSliderValue(self.threshDisp.text()))
         self.slider.setValue(self.thresholdVal * 10**self.sldPrec)
         buttonSearch = QPushButton('Search')
-        buttonSearch.clicked.connect(self.templateSearch)
+        buttonSearch.clicked.connect(self._templateSearch)
 
         # layout
         vlay = QVBoxLayout()
@@ -192,7 +197,7 @@ class Sidebar(QWidget):
     def blurImg(self):
         self.parentWidget().viewer.toggleBlur(self.cbBlurImg.isChecked())
 
-    def templateSearch(self):
+    def _templateSearch(self):
         templ = (self.crop_template.blurredCopy if self.cbBlurTemp.isChecked()
                     else self.crop_template.originalCopy)
         img = (self.parentWidget().viewer.blurredCopy
@@ -208,8 +213,47 @@ class Sidebar(QWidget):
     def printCoordinates(self):
         print(self.coords)
 
+    def _writeToNav(self, filename, label):
+        navfileData = self.parentWidget().parentWidget().navfileLines
+        try:
+            mapSectionIndex = navfileData.index(f"[Item = {label}]")
+        except Exception as e:
+            print("unable to write new autodoc file: label not found")
+            popup(self, "label not found")
+            print(e)
+            return
+        for s in navfileData[mapSectionIndex:]:
+            if "Regis = " in s:
+                regis = s.split()[2]
+                break
+        for s in navfileData[mapSectionIndex:]:
+            if "MapID = " in s:
+                drawnID = s.split()[2]
+                break
+        newLabel, okClicked = QInputDialog.getInt(self, "label number",
+                                          "enter starting label of new items")
+        if not okClicked:
+            return
+        with open(filename, 'w') as f:
+            f.write('AdocVersion = 2.00\n\n')
+            for x, y in self.coords:
+                item = NavFilePoint(newLabel, color=0, numPts=1, regis=regis,
+                                    ptsX=x, ptsY=y, drawnID=drawnID)
+                newLabel += 1
+                f.write(item.toString())
+
     def generateAutoDocFile(self):
-        pass
+        if not self.parentWidget().parentWidget().navfile: # not loaded in
+            print("navfile not loaded in")
+            popup(self, "navfile not loaded in")
+            return
+        label, okClicked = QInputDialog.getInt(self, "label number",
+                                          "enter label # of map to merge onto")
+        if not okClicked:
+            return
+        filename = QFileDialog.getSaveFileName(self, "Save points")[0]
+        self._writeToNav(filename, label)
+        popup(self, "autodoc created")
 
 
 class MainWidget(QWidget):
@@ -237,17 +281,23 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.root)
         self.statusBar()
         self.initUI()
+        self.navfile = ''
+        self.navfileLines = []
 
     def initUI(self):
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('File')
         viewMenu = menubar.addMenu('View')
 
-        openFile = QAction("Open File", self)
+        openFile = QAction("Open Image", self)
         openFile.setShortcut("Ctrl+O")
-        openFile.setStatusTip("Open new File")
-        openFile.triggered.connect(self.openFileDialog)
+        openFile.setStatusTip("Open new Image")
+        openFile.triggered.connect(self.imgFileDialog)
+        loadNavFile = QAction("Load Nav File", self)
+        loadNavFile.setStatusTip("Required: read in nav file to merge into")
+        loadNavFile.triggered.connect(self.navFileDialog)
         fileMenu.addAction(openFile)
+        fileMenu.addAction(loadNavFile)
 
         zoomIn = QAction("Zoom In", self)
         zoomIn.setShortcut(Qt.Key_Equal)
@@ -262,13 +312,29 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Title')
         self.show()
 
-    def openFileDialog(self):
-        filename = QFileDialog.getOpenFileName(self, 'Open File')[0]
+    def imgFileDialog(self):
+        print(self)
+        filename = QFileDialog.getOpenFileName(self, 'Open Image')[0]
 
         print(filename)
         if filename:
-            self.root.viewer.loadPicture(filename, newImg=True)
-            self.root.sidebar.cbBlurImg.setCheckState(Qt.Unchecked)
+            try:
+                self.root.viewer.loadPicture(filename, newImg=True)
+                self.root.sidebar.cbBlurImg.setCheckState(Qt.Unchecked)
+            except Exception as e:
+                popup(self, "could not load image")
+                print(e)
+
+    def navFileDialog(self):
+        navfile = QFileDialog.getOpenFileName(self, 'Load Nav File')[0]
+        print(navfile)
+        if navfile and isValidAutodoc(navfile):
+            popup(self, "successfully read in navfile")
+            self.navfile = navfile
+            with open(navfile) as f:
+                lines = [line.strip() for line in f.readlines()]
+                self.navfileLines = lines
+
 
 
 if __name__ == '__main__':
