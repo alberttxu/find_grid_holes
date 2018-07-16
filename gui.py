@@ -204,11 +204,15 @@ class Sidebar(QWidget):
                if self.cbBlurImg.isChecked()
                else self.parentWidget().viewer.originalCopy)
 
-        self.coords, img_ndArr = find_holes(np.array(QImageToPilRGBA(img)),
-                                      np.array(QImageToPilRGBA(templ)),
-                                      threshold=self.thresholdVal)
-        img = npToQImage(img_ndArr)
-        self.parentWidget().viewer.loadPicture(img)
+        try:
+            self.coords, img_ndArr = find_holes(np.array(QImageToPilRGBA(img)),
+                                          np.array(QImageToPilRGBA(templ)),
+                                          threshold=self.thresholdVal)
+            img = npToQImage(img_ndArr)
+            self.parentWidget().viewer.loadPicture(img)
+        except Exception as e:
+            popup(self, "either image or template missing")
+            print(e)
 
     def printCoordinates(self):
         print(self.coords)
