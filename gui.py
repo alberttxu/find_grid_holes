@@ -12,7 +12,7 @@ from PyQt5.QtGui import QImage, QPixmap, QKeySequence
 from PIL import Image, ImageFilter
 from PIL.ImageQt import ImageQt
 from search import find_holes
-from autodoc import NavFilePoint, isValidAutodoc
+from autodoc import NavFilePoint, isValidAutodoc, isValidLabel, createNav
 
 # image data manipulation
 def npToQImage(ndArr):
@@ -210,53 +210,39 @@ class Sidebar(QWidget):
                                           threshold=self.thresholdVal)
             img = npToQImage(img_ndArr)
             self.parentWidget().viewer.loadPicture(img)
-        except Exception as e:
+        except:
             popup(self, "either image or template missing")
-            print(e)
 
     def printCoordinates(self):
         print(self.coords)
 
-    def _writeToNav(self, filename, label):
-        navfileData = self.parentWidget().parentWidget().navfileLines
-        try:
-            mapSectionIndex = navfileData.index(f"[Item = {label}]")
-        except Exception as e:
-            print("unable to write new autodoc file: label not found")
-            popup(self, "label not found")
-            print(e)
-            return
-        for s in navfileData[mapSectionIndex:]:
-            if "Regis = " in s:
-                regis = s.split()[2]
-                break
-        for s in navfileData[mapSectionIndex:]:
-            if "MapID = " in s:
-                drawnID = s.split()[2]
-                break
-        newLabel, okClicked = QInputDialog.getInt(self, "label number",
-                                          "enter starting label of new items")
-        if not okClicked:
-            return
-        with open(filename, 'w') as f:
-            f.write('AdocVersion = 2.00\n\n')
-            for x, y in self.coords:
-                item = NavFilePoint(newLabel, color=0, numPts=1, regis=regis,
-                                    ptsX=x, ptsY=y, drawnID=drawnID)
-                newLabel += 1
-                f.write(item.toString())
-
     def generateAutoDocFile(self):
-        if not self.parentWidget().parentWidget().navfile: # not loaded in
+        navfileLines = self.parentWidget().parentWidget().navfileLines
+        if not navfileLines: # not loaded in
             print("navfile not loaded in")
             popup(self, "navfile not loaded in")
             return
-        label, okClicked = QInputDialog.getInt(self, "label number",
+        label, okClicked = QInputDialog.getText(self, "label number",
                                           "enter label # of map to merge onto")
-        if not okClicked:
+        if not okClicked: return
+        if not isValidLabel(navfileLines, label):
+            popup(self, "label not found")
             return
         filename = QFileDialog.getSaveFileName(self, "Save points")[0]
-        self._writeToNav(filename, label)
+        mapSectionIndex = navfileLines.index(f"[Item = {label}]")
+        for s in navfileLines[mapSectionIndex:]:
+            if "Regis = " in s:
+                regis = s.split()[2]
+                break
+        for s in navfileLines[mapSectionIndex:]:
+            if "MapID = " in s:
+                drawnID = s.split()[2]
+                break
+        newLabelStart, okClicked = QInputDialog.getInt(self, "label number",
+                                          "enter starting label of new items")
+        if not okClicked:
+            return
+        createNav(filename, self.coords, newLabelStart, regis, drawnID)
         popup(self, "autodoc created")
 
 
@@ -325,19 +311,22 @@ class MainWindow(QMainWindow):
             try:
                 self.root.viewer.loadPicture(filename, newImg=True)
                 self.root.sidebar.cbBlurImg.setCheckState(Qt.Unchecked)
-            except Exception as e:
+            except:
                 popup(self, "could not load image")
-                print(e)
 
     def navFileDialog(self):
         navfile = QFileDialog.getOpenFileName(self, 'Load Nav File')[0]
         print(navfile)
-        if navfile and isValidAutodoc(navfile):
+        if not navfile: return
+        if isValidAutodoc(navfile):
             popup(self, "successfully read in navfile")
             self.navfile = navfile
             with open(navfile) as f:
                 lines = [line.strip() for line in f.readlines()]
                 self.navfileLines = lines
+        else:
+            popup(self, "could not find AdocVersion")
+            return
 
 
 

@@ -8,15 +8,31 @@ def isValidAutodoc(navfile):
                     print(line)
                     return True
                 else:
-                    break
-        print("error: could not find AdocVersion")
+                    print("error: could not find AdocVersion")
+                    return False
+
+def isValidLabel(data: 'list', label: str):
+    try:
+        mapSectionIndex = data.index(f"[Item = {label}]")
+    except:
+        print("unable to write new autodoc file: label not found")
         return False
+    return True
+
+def createNav(filename, coords, label, regis, drawnID):
+    with open(filename, 'w') as f:
+        f.write('AdocVersion = 2.00\n\n')
+        for x, y in coords:
+            item = NavFilePoint(label, regis, x, y, drawnID)
+            label += 1
+            f.write(item.toString())
 
 
 class NavFilePoint:
 
-    def __init__(self, label: int, color: int, numPts: int, regis: int,
-            ptsX: int, ptsY: int, drawnID: int, itemType: int = 0, **kwargs):
+    def __init__(self, label: str, regis: int, ptsX: int, ptsY: int,
+            drawnID: int, numPts: int = 1, itemType: int = 0, color: int = 0,
+            **kwargs):
         self._label = label
         self.Color = color
         self.NumPts = numPts
