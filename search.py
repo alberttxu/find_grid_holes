@@ -21,7 +21,15 @@ def drawCross(img: 'ndarray', x, y):
 # modified from OpenCV docs
 # https://docs.opencv.org/3.4/d4/dc6/tutorial_py_template_matching.html
 def find_holes(img: 'ndarray', template: 'ndarray', threshold=0.8):
-    """returns match coords list and ndarray with blue cross at matches"""
+    """Returns coordinate list of positions with the highest cross-correlation
+    to the template array and also returns the same input array with blue
+    crosses at each coordinate.
+
+    0,0 is at the bottom-left corner, with +y going up and +x going right.
+    """
+
+    img = np.flip(img, 0).copy()
+    template = np.flip(template, 0).copy()
     h, w, *_ = template.shape
     xcorrScores = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
     loc = zip(*np.where(xcorrScores >= threshold))
