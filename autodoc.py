@@ -19,11 +19,23 @@ def isValidLabel(data: 'list', label: str):
         return False
     return True
 
-def createNav(filename, coords, label, regis, drawnID):
+def sectionAsDict(data: 'list', label: str):
+    start = data.index(f"[Item = {label}]") + 1
+    section = data[start : data.index('', start)]
+
+    result = {}
+    for line in section:
+        key, val = [s.strip() for s in line.split('=')]
+        if key != 'Note':
+            val = val.split()
+        result[key] = val
+    return result
+
+def createNav(filename, coords, zHeight, label, regis, drawnID):
     with open(filename, 'w') as f:
         f.write('AdocVersion = 2.00\n\n')
         for x, y in coords:
-            item = NavFilePoint(label, regis, x, y, drawnID)
+            item = NavFilePoint(label, regis, x, y, zHeight, drawnID)
             label += 1
             f.write(item.toString())
 
@@ -31,8 +43,8 @@ def createNav(filename, coords, label, regis, drawnID):
 class NavFilePoint:
 
     def __init__(self, label: str, regis: int, ptsX: int, ptsY: int,
-            drawnID: int, numPts: int = 1, itemType: int = 0, color: int = 0,
-            **kwargs):
+            zHeight: float, drawnID: int, numPts: int = 1, itemType: int = 0,
+            color: int = 0, **kwargs):
         self._label = label
         self.Color = color
         self.NumPts = numPts
@@ -41,7 +53,7 @@ class NavFilePoint:
         self.PtsX = ptsX
         self.PtsY = ptsY
         self.DrawnID = drawnID
-        self.CoordsInMap = [ptsX, ptsY, 0]
+        self.CoordsInMap = [ptsX, ptsY, zHeight]
         vars(self).update(kwargs)
 
     def toString(self):

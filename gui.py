@@ -12,7 +12,9 @@ from PyQt5.QtGui import QImage, QPixmap, QKeySequence
 from PIL import Image, ImageFilter
 from PIL.ImageQt import ImageQt
 from search import find_holes
-from autodoc import NavFilePoint, isValidAutodoc, isValidLabel, createNav
+from autodoc import (NavFilePoint, isValidAutodoc, isValidLabel, sectionAsDict,
+                     createNav)
+
 
 # image data manipulation
 def npToQImage(ndArr):
@@ -214,7 +216,7 @@ class Sidebar(QWidget):
             popup(self, "either image or template missing")
 
     def printCoordinates(self):
-        print(self.coords)
+        popup(self, f"{len(self.coords)} points: {str(self.coords)}")
 
     def generateAutoDocFile(self):
         navfileLines = self.parentWidget().parentWidget().navfileLines
@@ -222,27 +224,22 @@ class Sidebar(QWidget):
             print("navfile not loaded in")
             popup(self, "navfile not loaded in")
             return
-        label, okClicked = QInputDialog.getText(self, "label number",
+        mapLabel, okClicked = QInputDialog.getText(self, "label number",
                                           "enter label # of map to merge onto")
         if not okClicked: return
-        if not isValidLabel(navfileLines, label):
+        if not isValidLabel(navfileLines, mapLabel):
             popup(self, "label not found")
             return
         filename = QFileDialog.getSaveFileName(self, "Save points")[0]
-        mapSectionIndex = navfileLines.index(f"[Item = {label}]")
-        for s in navfileLines[mapSectionIndex:]:
-            if "Regis = " in s:
-                regis = s.split()[2]
-                break
-        for s in navfileLines[mapSectionIndex:]:
-            if "MapID = " in s:
-                drawnID = s.split()[2]
-                break
-        newLabelStart, okClicked = QInputDialog.getInt(self, "label number",
+        mapSection = sectionAsDict(navfileLines, mapLabel)
+        regis = int(mapSection['Regis'][0])
+        drawnID = int(mapSection['MapID'][0])
+        zHeight = float(mapSection['StageXYZ'][2])
+        startLabel, okClicked = QInputDialog.getInt(self, "label number",
                                           "enter starting label of new items")
         if not okClicked:
             return
-        createNav(filename, self.coords, newLabelStart, regis, drawnID)
+        createNav(filename, self.coords, zHeight, startLabel, regis, drawnID)
         popup(self, "autodoc created")
 
 
