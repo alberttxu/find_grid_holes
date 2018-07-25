@@ -43,4 +43,4 @@ def find_holes(img: 'ndarray', template: 'ndarray', threshold=0.8):
             y += h//2
             drawCross(img, x, y)
             matches.append((x,y))
-    return matches, img
+    return matches, np.flip(img, 0).copy()
