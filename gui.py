@@ -53,6 +53,7 @@ class ImageViewer(QScrollArea):
         self.label = QLabel(self)
         self._refresh()
         self.setWidget(self.label)
+        #self.setAlignment(Qt.AlignCenter)
 
     def loadPicture(self, img, newImg=False):
         if type(img) == str:
@@ -76,12 +77,24 @@ class ImageViewer(QScrollArea):
             self.loadPicture(self.originalCopy)
 
     def _refresh(self):
+        # save old slider values to recalculate
+        hBar = self.horizontalScrollBar()
+        vBar = self.verticalScrollBar()
+        try:
+            hBarRatio = hBar.value() / hBar.maximum()
+            vBarRatio = vBar.value() / vBar.maximum()
+        except ZeroDivisionError:
+            hBarRatio = 0
+            vBarRatio = 0
+        # resize
         self.img = self.searchCopy.scaled(
                                      self.zoomScale * self.searchCopy.size(),
                                      aspectRatioMode=Qt.KeepAspectRatio)
         self.label.setPixmap(QPixmap(self.img))
         self.label.resize(self.img.size())
         self.label.repaint()
+        hBar.setValue(int(hBarRatio * hBar.maximum()))
+        vBar.setValue(int(vBarRatio * vBar.maximum()))
 
     def zoomIn(self):
         self.zoomScale *= 1.25
