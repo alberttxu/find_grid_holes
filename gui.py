@@ -84,11 +84,11 @@ class ImageViewer(QScrollArea):
         self.label.repaint()
 
     def zoomIn(self):
-        self.zoomScale += 0.1
+        self.zoomScale *= 1.25
         self._refresh()
 
     def zoomOut(self):
-        self.zoomScale -= 0.1
+        self.zoomScale *= 0.8
         self._refresh()
 
 
