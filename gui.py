@@ -110,21 +110,29 @@ class ImageViewerCrop(ImageViewer):
     def __init__(self, filename=''):
         super().__init__(filename)
 
-    def mousePressEvent(self, eventQMouseEvent):
-        self.center = eventQMouseEvent.pos()
+    def mousePressEvent(self, mouseEvent):
+        self.shiftPressed = QApplication.keyboardModifiers() == Qt.ShiftModifier
+        self.center = mouseEvent.pos()
         self.rband = QRubberBand(QRubberBand.Rectangle, self)
         self.rband.setGeometry(QRect(self.center, QSize()))
         self.rband.show()
 
-    def mouseMoveEvent(self, eventQMouseEvent):
+    def mouseMoveEvent(self, mouseEvent):
         # unnormalized QRect can have negative width/height
-        self.rband.setGeometry(QRect(2*self.center - eventQMouseEvent.pos(),
-                               eventQMouseEvent.pos()).normalized())
+        crop = QRect(2*self.center - mouseEvent.pos(),
+                     mouseEvent.pos()).normalized()
+        if self.shiftPressed:
+            largerSide = max(crop.width(), crop.height())
+            self.rband.setGeometry(self.center.x() - largerSide//2,
+                                   self.center.y() - largerSide//2,
+                                   largerSide, largerSide)
+        else:
+            self.rband.setGeometry(crop)
 
-    def mouseReleaseEvent(self, eventQMouseEvent):
+    def mouseReleaseEvent(self, mouseEvent):
         self.rband.hide()
         crop = self.rband.geometry()
-        # handle misclick
+        # handle single click initializing default QRect selecting entire image
         if crop.height() < 10 and crop.width() < 10:
             return
         # calculate X and Y position in original image
@@ -135,9 +143,9 @@ class ImageViewerCrop(ImageViewer):
         # save crop
         cropQImage = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
                                                          origScaleCropHeight))
-        sb = self.parentWidget().sidebar
-        sb.cbBlurTemp.setCheckState(Qt.Unchecked)
-        sb.crop_template.loadPicture(cropQImage, newImg=True)
+        sidebar = self.parentWidget().sidebar
+        sidebar.cbBlurTemp.setCheckState(Qt.Unchecked)
+        sidebar.crop_template.loadPicture(cropQImage, newImg=True)
 
 
 class Sidebar(QWidget):
@@ -218,7 +226,6 @@ class Sidebar(QWidget):
         img = (self.parentWidget().viewer.blurredCopy
                if self.cbBlurImg.isChecked()
                else self.parentWidget().viewer.originalCopy)
-
         try:
             self.coords, img_ndArr = find_holes(np.array(QImageToPilRGBA(img)),
                                           np.array(QImageToPilRGBA(templ)),
