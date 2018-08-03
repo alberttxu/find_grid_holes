@@ -31,20 +31,12 @@ def sectionAsDict(data: 'list', label: str):
         result[key] = val
     return result
 
-def createNav(filename, coords, zHeight, label, regis, drawnID):
-    with open(filename, 'w') as f:
-        f.write('AdocVersion = 2.00\n\n')
-        for x, y in coords:
-            item = NavFilePoint(label, regis, x, y, zHeight, drawnID)
-            label += 1
-            f.write(item.toString())
-
 
 class NavFilePoint:
 
     def __init__(self, label: str, regis: int, ptsX: int, ptsY: int,
             zHeight: float, drawnID: int, numPts: int = 1, itemType: int = 0,
-            color: int = 0, **kwargs):
+            color: int = 0, groupID: int = 0, **kwargs):
         self._label = label
         self.Color = color
         self.NumPts = numPts
@@ -53,6 +45,7 @@ class NavFilePoint:
         self.PtsX = ptsX
         self.PtsY = ptsY
         self.DrawnID = drawnID
+        self.GroupID = groupID
         self.CoordsInMap = [ptsX, ptsY, zHeight]
         vars(self).update(kwargs)
 

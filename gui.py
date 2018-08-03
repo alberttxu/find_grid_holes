@@ -11,9 +11,8 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
 from PyQt5.QtGui import QImage, QPixmap, QKeySequence
 from PIL import Image, ImageFilter
 from PIL.ImageQt import ImageQt
-from search import find_holes
-from autodoc import (NavFilePoint, isValidAutodoc, isValidLabel, sectionAsDict,
-                     createNav)
+from search import findHoles, makeGroupsOfPoints, closestPtToCentroid
+from autodoc import NavFilePoint, isValidAutodoc, isValidLabel, sectionAsDict
 
 
 # image data manipulation
@@ -26,8 +25,8 @@ def QImageToPilRGBA(qimg):
     qimg.save(buf, "PNG")
     return Image.open(io.BytesIO(buf.data().data())).convert('RGBA')
 
-def gaussianBlur(qimg):
-    pilImg = QImageToPilRGBA(qimg).filter(ImageFilter.GaussianBlur)
+def gaussianBlur(qimg, radius=5):
+    pilImg = QImageToPilRGBA(qimg).filter(ImageFilter.GaussianBlur(radius))
     return QPixmap.fromImage(ImageQt(pilImg)).toImage()
 
 # popup messages
@@ -159,6 +158,7 @@ class Sidebar(QWidget):
         self.setFixedWidth(self.width)
         self.sldPrec = 3
         self.thresholdVal = 0.8
+        self.groupPoints = True
         self.coords = []
 
         # widgets
@@ -181,6 +181,9 @@ class Sidebar(QWidget):
         self.threshDisp.returnPressed.connect(
                           lambda: self._setSliderValue(self.threshDisp.text()))
         self.slider.setValue(self.thresholdVal * 10**self.sldPrec)
+        self.cbGroupPoints = QCheckBox('Group points')
+        self.cbGroupPoints.setCheckState(Qt.Checked)
+        self.cbGroupPoints.clicked.connect(self._toggleGroupPoints)
         buttonSearch = QPushButton('Search')
         buttonSearch.clicked.connect(self._templateSearch)
 
@@ -191,12 +194,11 @@ class Sidebar(QWidget):
         vlay.addWidget(self.cbBlurImg)
         vlay.addWidget(QLabel())
         vlay.addWidget(QLabel('Threshold'))
-        threshold = QGridLayout()
-        threshold.addWidget(self.slider, 0, 0, 1, 1)
-        threshold.addWidget(self.threshDisp, 1, 0, 1, 1)
-        threshold.addWidget(buttonSearch)
-        threshold.addWidget(QLabel())
-        vlay.addLayout(threshold)
+        vlay.addWidget(self.slider)
+        vlay.addWidget(self.threshDisp)
+        vlay.addWidget(buttonSearch)
+        vlay.addWidget(QLabel())
+        vlay.addWidget(self.cbGroupPoints)
         vlay.addWidget(buttonAutoDoc)
         vlay.addWidget(buttonPrintCoord)
         vlay.addStretch(1)
@@ -227,7 +229,7 @@ class Sidebar(QWidget):
                if self.cbBlurImg.isChecked()
                else self.parentWidget().viewer.originalCopy)
         try:
-            self.coords, img_ndArr = find_holes(np.array(QImageToPilRGBA(img)),
+            self.coords, img_ndArr = findHoles(np.array(QImageToPilRGBA(img)),
                                           np.array(QImageToPilRGBA(templ)),
                                           threshold=self.thresholdVal)
             img = npToQImage(img_ndArr)
@@ -239,6 +241,7 @@ class Sidebar(QWidget):
         popup(self, f"{len(self.coords)} points: {str(self.coords)}")
 
     def generateAutoDocFile(self):
+        # error checking
         navfileLines = self.parentWidget().parentWidget().navfileLines
         if not navfileLines: # not loaded in
             print("navfile not loaded in")
@@ -250,17 +253,44 @@ class Sidebar(QWidget):
         if not isValidLabel(navfileLines, mapLabel):
             popup(self, "label not found")
             return
+        startLabel, okClicked = QInputDialog.getInt(self, "label number",
+                                          "enter starting label of new items")
+        if not okClicked: return
         filename = QFileDialog.getSaveFileName(self, "Save points")[0]
+        if filename == '' : return
+
+        # after passing all checks
         mapSection = sectionAsDict(navfileLines, mapLabel)
         regis = int(mapSection['Regis'][0])
         drawnID = int(mapSection['MapID'][0])
         zHeight = float(mapSection['StageXYZ'][2])
-        startLabel, okClicked = QInputDialog.getInt(self, "label number",
-                                          "enter starting label of new items")
-        if not okClicked:
-            return
-        createNav(filename, self.coords, zHeight, startLabel, regis, drawnID)
+
+        navPoints = []
+        label = startLabel
+        if self.groupPoints:
+            for group in makeGroupsOfPoints(self.coords, max_radius=300):
+                groupID = id(group)
+                groupLeader = closestPtToCentroid(group)
+                group = [groupLeader] + [pt for pt in group
+                                         if pt != groupLeader]
+                for pt in group:
+                    navPoints.append(NavFilePoint(label, regis, *pt, zHeight,
+                                                  drawnID, groupID=groupID))
+                    label += 1
+        else:
+            for pt in self.coords:
+                navPoints.append(NavFilePoint(label, regis, *pt, zHeight,
+                                              drawnID))
+                label += 1
+
+        with open(filename, 'w') as f:
+            f.write('AdocVersion = 2.00\n\n')
+            for navPoint in navPoints:
+                f.write(navPoint.toString())
         popup(self, "autodoc created")
+
+    def _toggleGroupPoints(self):
+        self.groupPoints = self.cbGroupPoints.isChecked()
 
 
 class MainWidget(QWidget):

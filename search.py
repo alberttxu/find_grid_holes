@@ -2,14 +2,18 @@
 import numpy as np
 import cv2
 
+
+# for relative distance, square distance is faster to compute
+def squareDist(pt1: 'tuple', pt2: 'tuple'):
+    return (pt1[0]-pt2[0])**2 + (pt1[1]-pt2[1])**2
+
 # prevent including the same hole multiple times
-def withinRadius(x, y, coords, radius):
+def pointsExistWithinRadius(center, coords, radius):
     radius_2 = radius ** 2
     if len(coords) == 0:
         return False
-    for c in coords:
-        distance_2 = (c[0]-x)**2 + (c[1]-y)**2
-        if distance_2 < radius_2:
+    for pt in coords:
+        if squareDist(pt, center) < radius_2:
             return True
     return False
 
@@ -20,7 +24,7 @@ def drawCross(img: 'ndarray', x, y):
 
 # modified from OpenCV docs
 # https://docs.opencv.org/3.4/d4/dc6/tutorial_py_template_matching.html
-def find_holes(img: 'ndarray', template: 'ndarray', threshold=0.8):
+def findHoles(img: 'ndarray', template: 'ndarray', threshold=0.8):
     """Returns coordinate list of positions with the highest cross-correlation
     to the template array and also returns the same input array with blue
     crosses at each coordinate.
@@ -38,9 +42,43 @@ def find_holes(img: 'ndarray', template: 'ndarray', threshold=0.8):
     # write back to img
     matches = []
     for x, y, _ in scoresIndex:
-        if not withinRadius(x, y, matches, radius=max(h,w)):
+        if not pointsExistWithinRadius((x,y), matches, radius=max(h,w)):
             x += w//2
             y += h//2
             drawCross(img, x, y)
             matches.append((x,y))
     return matches, np.flip(img, 0).copy()
+
+def centroid(pts: 'ndarray'):
+    length = pts.shape[0]
+    sum_x = np.sum(pts[:, 0])
+    sum_y = np.sum(pts[:, 1])
+    return sum_x/length, sum_y/length
+
+def closestPtToCentroid(pts):
+    """Returns the coordinate closest to the center of mass"""
+    center = centroid(np.array(pts))
+    closestPoint = pts[0]
+    msd = squareDist(pts[0], center) # min square distance
+    for pt in pts:
+        dist_2 = squareDist(pt, center)
+        if dist_2 < msd:
+            closestPoint = pt
+            msd = dist_2
+    return closestPoint
+
+def makeGroupsOfPoints(pts, max_radius):
+    pts = [tuple(pt) for pt in pts]
+    max_rad_2 = max_radius ** 2
+    groups = []
+    unprocessedPts = set(pts)
+    while unprocessedPts:
+        x = unprocessedPts.pop()
+        group = [x]
+        for pt in pts:
+            if pt in unprocessedPts and squareDist(x, pt) < max_rad_2:
+                group.append(pt)
+                unprocessedPts.remove(pt)
+        groups.append(group)
+    return groups
+
