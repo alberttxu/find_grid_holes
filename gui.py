@@ -168,12 +168,6 @@ class Sidebar(QWidget):
         self.cbBlurTemp.clicked.connect(self.blurTemp)
         self.cbBlurImg  = QCheckBox('Blur image')
         self.cbBlurImg.clicked.connect(self.blurImg)
-        buttonAutoDoc = QPushButton('Generate autodoc file')
-        buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
-        buttonAutoDoc.clicked.connect(self.generateAutoDocFile)
-        buttonPrintCoord = QPushButton('Print Coordinates')
-        buttonPrintCoord.resize(buttonPrintCoord.sizeHint())
-        buttonPrintCoord.clicked.connect(self.printCoordinates)
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMaximum(10**self.sldPrec)
         self.slider.valueChanged.connect(self._setThreshDisp)
@@ -181,11 +175,19 @@ class Sidebar(QWidget):
         self.threshDisp.returnPressed.connect(
                           lambda: self._setSliderValue(self.threshDisp.text()))
         self.slider.setValue(self.thresholdVal * 10**self.sldPrec)
+        buttonSearch = QPushButton('Search')
+        buttonSearch.clicked.connect(self._templateSearch)
         self.cbGroupPoints = QCheckBox('Group points')
         self.cbGroupPoints.setCheckState(Qt.Checked)
         self.cbGroupPoints.clicked.connect(self._toggleGroupPoints)
-        buttonSearch = QPushButton('Search')
-        buttonSearch.clicked.connect(self._templateSearch)
+        buttonClearPts = QPushButton('Clear Points')
+        buttonClearPts.clicked.connect(self._clearPts)
+        buttonAutoDoc = QPushButton('Generate autodoc file')
+        buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
+        buttonAutoDoc.clicked.connect(self.generateAutoDocFile)
+        buttonPrintCoord = QPushButton('Print Coordinates')
+        buttonPrintCoord.resize(buttonPrintCoord.sizeHint())
+        buttonPrintCoord.clicked.connect(self.printCoordinates)
 
         # layout
         vlay = QVBoxLayout()
@@ -197,6 +199,7 @@ class Sidebar(QWidget):
         vlay.addWidget(self.slider)
         vlay.addWidget(self.threshDisp)
         vlay.addWidget(buttonSearch)
+        vlay.addWidget(buttonClearPts)
         vlay.addWidget(QLabel())
         vlay.addWidget(self.cbGroupPoints)
         vlay.addWidget(buttonAutoDoc)
@@ -291,6 +294,13 @@ class Sidebar(QWidget):
 
     def _toggleGroupPoints(self):
         self.groupPoints = self.cbGroupPoints.isChecked()
+
+    def _clearPts(self):
+        self.coords = []
+        parent = self.parentWidget()
+        self.cbBlurImg.setCheckState(Qt.Unchecked)
+        parent.viewer.loadPicture(parent.viewer.originalCopy)
+        self.update()
 
 
 class MainWidget(QWidget):
