@@ -2,7 +2,7 @@ altgraph==0.16.1
 future==0.16.0
 macholib==1.10
 numpy==1.15.0
-opencv-python==3.1.0.4
+opencv-python==3.1.0.5
 pefile==2017.11.5
 Pillow==5.2.0
 PyInstaller==3.3.1
