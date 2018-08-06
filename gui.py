@@ -11,8 +11,9 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
 from PyQt5.QtGui import QImage, QPixmap, QKeySequence
 from PIL import Image, ImageFilter
 from PIL.ImageQt import ImageQt
-from search import findHoles, makeGroupsOfPoints, closestPtToCentroid
-from autodoc import NavFilePoint, isValidAutodoc, isValidLabel, sectionAsDict
+from search import findHoles
+from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
+                     coordsToNavPoints)
 
 
 # image data manipulation
@@ -159,6 +160,7 @@ class Sidebar(QWidget):
         self.sldPrec = 3
         self.thresholdVal = 0.8
         self.groupPoints = True
+        self.groupRadius = 300
         self.coords = []
 
         # widgets
@@ -173,13 +175,16 @@ class Sidebar(QWidget):
         self.slider.valueChanged.connect(self._setThreshDisp)
         self.threshDisp = QLineEdit()
         self.threshDisp.returnPressed.connect(
-                          lambda: self._setSliderValue(self.threshDisp.text()))
+                         lambda: self._setThreshSlider(self.threshDisp.text()))
         self.slider.setValue(self.thresholdVal * 10**self.sldPrec)
         buttonSearch = QPushButton('Search')
         buttonSearch.clicked.connect(self._templateSearch)
         self.cbGroupPoints = QCheckBox('Group points')
         self.cbGroupPoints.setCheckState(Qt.Checked)
         self.cbGroupPoints.clicked.connect(self._toggleGroupPoints)
+        self.groupRadiusLineEdit = QLineEdit()
+        self.groupRadiusLineEdit.returnPressed.connect(
+                 lambda: self._setGroupRadius(self.groupRadiusLineEdit.text()))
         buttonClearPts = QPushButton('Clear Points')
         buttonClearPts.clicked.connect(self._clearPts)
         buttonAutoDoc = QPushButton('Generate autodoc file')
@@ -201,7 +206,11 @@ class Sidebar(QWidget):
         vlay.addWidget(buttonSearch)
         vlay.addWidget(buttonClearPts)
         vlay.addWidget(QLabel())
-        vlay.addWidget(self.cbGroupPoints)
+        groupPtsLay = QHBoxLayout()
+        groupPtsLay.addWidget(self.cbGroupPoints)
+        groupPtsLay.addWidget(self.groupRadiusLineEdit)
+        groupPtsLay.addWidget(QLabel('µm'))
+        vlay.addLayout(groupPtsLay)
         vlay.addWidget(buttonAutoDoc)
         vlay.addWidget(buttonPrintCoord)
         vlay.addStretch(1)
@@ -212,11 +221,18 @@ class Sidebar(QWidget):
                                                    self.sldPrec))
         self.threshDisp.setText(str(self.thresholdVal))
 
-    def _setSliderValue(self, s: str):
+    def _setThreshSlider(self, s: str):
         try:
             self.slider.setValue(int(10**self.sldPrec * float(s)))
             self.thresholdVal = float("{:.{}f}".format(float(s), self.sldPrec))
         except ValueError:
+            pass
+
+    def _setGroupRadius(self, s: str):
+        try:
+            self.groupRadius = float("{:.1f}".format(float(s)))
+            print(self.groupRadius)
+        except:
             pass
 
     def blurTemp(self):
@@ -264,27 +280,8 @@ class Sidebar(QWidget):
 
         # after passing all checks
         mapSection = sectionAsDict(navfileLines, mapLabel)
-        regis = int(mapSection['Regis'][0])
-        drawnID = int(mapSection['MapID'][0])
-        zHeight = float(mapSection['StageXYZ'][2])
-
-        navPoints = []
-        label = startLabel
-        if self.groupPoints:
-            for group in makeGroupsOfPoints(self.coords, max_radius=300):
-                groupID = id(group)
-                groupLeader = closestPtToCentroid(group)
-                group = [groupLeader] + [pt for pt in group
-                                         if pt != groupLeader]
-                for pt in group:
-                    navPoints.append(NavFilePoint(label, regis, *pt, zHeight,
-                                                  drawnID, groupID=groupID))
-                    label += 1
-        else:
-            for pt in self.coords:
-                navPoints.append(NavFilePoint(label, regis, *pt, zHeight,
-                                              drawnID))
-                label += 1
+        navPoints = coordsToNavPoints(self.coords, mapSection, startLabel,
+                                      self.groupPoints, self.groupRadius)
 
         with open(filename, 'w') as f:
             f.write('AdocVersion = 2.00\n\n')
