@@ -42,9 +42,9 @@ def findHoles(img: 'ndarray', template: 'ndarray', threshold=0.8):
     # write back to img
     matches = []
     for x, y, _ in scoresIndex:
+        x += w//2
+        y += h//2
         if not pointsExistWithinRadius((x,y), matches, radius=max(h,w)):
-            x += w//2
-            y += h//2
             drawCross(img, x, y)
             matches.append((x,y))
     return matches, np.flip(img, 0).copy()
