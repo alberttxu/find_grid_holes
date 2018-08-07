@@ -18,7 +18,7 @@ from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
 
 # image data manipulation
 def npToQImage(ndArr):
-    return QImage(ImageQt(Image.fromarray(ndArr)))
+    return QPixmap.fromImage(ImageQt(Image.fromarray(ndArr))).toImage()
 
 def QImageToPilRGBA(qimg):
     buf = QBuffer()
