@@ -19,8 +19,8 @@ def pointsExistWithinRadius(center, coords, radius):
 
 def drawCross(img: 'ndarray', x, y):
     blue = (0,0,255,255)
-    cv2.line(img, (x-5,y), (x+5,y), blue, 2)
-    cv2.line(img, (x,y-5), (x,y+5), blue, 2)
+    cv2.line(img, (x-20,y), (x+20,y), blue, 4)
+    cv2.line(img, (x,y-20), (x,y+20), blue, 4)
 
 # modified from OpenCV docs
 # https://docs.opencv.org/3.4/d4/dc6/tutorial_py_template_matching.html
