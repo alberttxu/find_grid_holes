@@ -132,6 +132,8 @@ class ImageViewerCrop(ImageViewer):
     def mouseReleaseEvent(self, mouseEvent):
         self.rband.hide()
         crop = self.rband.geometry()
+        if self.img.isNull(): # no image loaded in
+            return
         # handle single click initializing default QRect selecting entire image
         if crop.height() < 10 and crop.width() < 10:
             return
