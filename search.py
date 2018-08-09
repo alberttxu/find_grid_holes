@@ -68,7 +68,7 @@ def closestPtToCentroid(pts):
     return closestPoint
 
 def makeGroupsOfPoints(pts, max_radius):
-    pts = [tuple(pt) for pt in pts]
+    pts = [tuple(pt) for pt in sorted(pts, key=lambda pt: pt[0])]
     max_rad_2 = max_radius ** 2
     groups = []
     unprocessedPts = set(pts)

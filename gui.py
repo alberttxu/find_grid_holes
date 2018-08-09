@@ -162,7 +162,7 @@ class Sidebar(QWidget):
         self.thresholdVal = 0.8
         self.pixelSizeNm = 10 # nanometers per pixel
         self.groupPoints = True
-        self.groupRadius = 3 # µm
+        self.groupRadius = 7 # µm
         self.coords = []
 
         # widgets
