@@ -30,15 +30,19 @@ class NavFilePoint:
 
 
 def isValidAutodoc(navfile):
-    with open(navfile) as f:
-        for line in f:
-            if line.strip():
-                if line.split()[0] == 'AdocVersion':
-                    print(line)
-                    return True
-                else:
-                    print("error: could not find AdocVersion")
-                    return False
+    try:
+        with open(navfile) as f:
+            for line in f:
+                if line.strip():
+                    if line.split()[0] == 'AdocVersion':
+                        print(line)
+                        return True
+                    else:
+                        print("error: could not find AdocVersion")
+                        return False
+    except:
+        print("invalid autodoc")
+        return False
 
 def isValidLabel(data: 'list', label: str):
     try:
@@ -61,7 +65,7 @@ def sectionAsDict(data: 'list', label: str):
     return result
 
 def coordsToNavPoints(coords, mapSection: 'Dict', startLabel, groupPoints,
-                                                              groupRadius):
+                                                              groupRadiusPix):
     regis = int(mapSection['Regis'][0])
     drawnID = int(mapSection['MapID'][0])
     zHeight = float(mapSection['StageXYZ'][2])
@@ -69,7 +73,7 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel, groupPoints,
     navPoints = []
     label = startLabel
     if groupPoints:
-        for group in makeGroupsOfPoints(coords, groupRadius):
+        for group in makeGroupsOfPoints(coords, groupRadiusPix):
             groupID = id(group)
             groupLeader = closestPtToCentroid(group)
             group = [groupLeader] + [pt for pt in group if pt != groupLeader]

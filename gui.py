@@ -53,7 +53,6 @@ class ImageViewer(QScrollArea):
         self.label = QLabel(self)
         self._refresh()
         self.setWidget(self.label)
-        #self.setAlignment(Qt.AlignCenter)
 
     def loadPicture(self, img, newImg=False):
         if type(img) == str:
@@ -161,8 +160,9 @@ class Sidebar(QWidget):
         self.setFixedWidth(self.width)
         self.sldPrec = 3
         self.thresholdVal = 0.8
+        self.pixelSizeNm = 10 # nanometers per pixel
         self.groupPoints = True
-        self.groupRadius = 300
+        self.groupRadius = 3 # µm
         self.coords = []
 
         # widgets
@@ -181,20 +181,25 @@ class Sidebar(QWidget):
         self.slider.setValue(self.thresholdVal * 10**self.sldPrec)
         buttonSearch = QPushButton('Search')
         buttonSearch.clicked.connect(self._templateSearch)
+        buttonPrintCoord = QPushButton('Print Coordinates')
+        buttonPrintCoord.resize(buttonPrintCoord.sizeHint())
+        buttonPrintCoord.clicked.connect(self.printCoordinates)
+        buttonClearPts = QPushButton('Clear Points')
+        buttonClearPts.clicked.connect(self._clearPts)
+        buttonAutoDoc = QPushButton('Generate autodoc file')
+        buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
+        buttonAutoDoc.clicked.connect(self.generateAutoDocFile)
         self.cbGroupPoints = QCheckBox('Group points')
         self.cbGroupPoints.setCheckState(Qt.Checked)
         self.cbGroupPoints.clicked.connect(self._toggleGroupPoints)
         self.groupRadiusLineEdit = QLineEdit()
         self.groupRadiusLineEdit.returnPressed.connect(
                  lambda: self._setGroupRadius(self.groupRadiusLineEdit.text()))
-        buttonClearPts = QPushButton('Clear Points')
-        buttonClearPts.clicked.connect(self._clearPts)
-        buttonAutoDoc = QPushButton('Generate autodoc file')
-        buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
-        buttonAutoDoc.clicked.connect(self.generateAutoDocFile)
-        buttonPrintCoord = QPushButton('Print Coordinates')
-        buttonPrintCoord.resize(buttonPrintCoord.sizeHint())
-        buttonPrintCoord.clicked.connect(self.printCoordinates)
+        self._setGroupRadius(str(self.groupRadius))
+        self.pixelSizeLineEdit = QLineEdit()
+        self.pixelSizeLineEdit.returnPressed.connect(
+                 lambda: self._setPixelSize(self.pixelSizeLineEdit.text()))
+        self._setPixelSize(str(self.pixelSizeNm))
 
         # layout
         vlay = QVBoxLayout()
@@ -206,15 +211,20 @@ class Sidebar(QWidget):
         vlay.addWidget(self.slider)
         vlay.addWidget(self.threshDisp)
         vlay.addWidget(buttonSearch)
+        vlay.addWidget(buttonPrintCoord)
         vlay.addWidget(buttonClearPts)
         vlay.addWidget(QLabel())
-        groupPtsLay = QHBoxLayout()
-        groupPtsLay.addWidget(self.cbGroupPoints)
-        groupPtsLay.addWidget(self.groupRadiusLineEdit)
-        groupPtsLay.addWidget(QLabel('µm'))
-        vlay.addLayout(groupPtsLay)
+        #groupPtsLay = QHBoxLayout()
+        groupPtsLay = QGridLayout()
+        groupPtsLay.addWidget(self.cbGroupPoints, 1, 0)
+        groupPtsLay.addWidget(QLabel('Group Radius'), 2, 0)
+        groupPtsLay.addWidget(self.groupRadiusLineEdit, 2, 1)
+        groupPtsLay.addWidget(QLabel('µm'), 2, 2)
+        groupPtsLay.addWidget(QLabel('PixelSize'), 3, 0)
+        groupPtsLay.addWidget(self.pixelSizeLineEdit, 3, 1)
+        groupPtsLay.addWidget(QLabel('nm'), 3, 2)
         vlay.addWidget(buttonAutoDoc)
-        vlay.addWidget(buttonPrintCoord)
+        vlay.addLayout(groupPtsLay)
         vlay.addStretch(1)
         self.setLayout(vlay)
 
@@ -233,7 +243,14 @@ class Sidebar(QWidget):
     def _setGroupRadius(self, s: str):
         try:
             self.groupRadius = float("{:.1f}".format(float(s)))
-            print(self.groupRadius)
+            self.groupRadiusLineEdit.setText(str(self.groupRadius))
+        except:
+            pass
+
+    def _setPixelSize(self, s: str):
+        try:
+            self.pixelSizeNm = float("{:.1f}".format(float(s)))
+            self.pixelSizeLineEdit.setText(str(self.pixelSizeNm))
         except:
             pass
 
@@ -282,8 +299,9 @@ class Sidebar(QWidget):
 
         # after passing all checks
         mapSection = sectionAsDict(navfileLines, mapLabel)
+        groupRadiusPixels = 1000 * self.groupRadius / self.pixelSizeNm
         navPoints = coordsToNavPoints(self.coords, mapSection, startLabel,
-                                      self.groupPoints, self.groupRadius)
+                                      self.groupPoints, groupRadiusPixels)
 
         with open(filename, 'w') as f:
             f.write('AdocVersion = 2.00\n\n')
@@ -359,7 +377,6 @@ class MainWindow(QMainWindow):
         self.show()
 
     def imgFileDialog(self):
-        print(self)
         filename = QFileDialog.getOpenFileName(self, 'Open Image')[0]
 
         print(filename)
@@ -381,7 +398,7 @@ class MainWindow(QMainWindow):
                 lines = [line.strip() for line in f.readlines()]
                 self.navfileLines = lines
         else:
-            popup(self, "could not find AdocVersion")
+            popup(self, "could not read in nav file")
             return
 
 
