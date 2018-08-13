@@ -80,7 +80,8 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel, groupPoints,
             group = [groupLeader] + [pt for pt in group if pt != groupLeader]
             for pt in group:
                 navPoints.append(NavFilePoint(f"{label}-{subLabel}", regis,
-                                              *pt, zHeight, drawnID, groupID))
+                                              *pt, zHeight, drawnID,
+                                              groupID=groupID))
                 subLabel += 1
             label += 1
     else:
