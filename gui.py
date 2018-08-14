@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import io
 import sys
+import cv2
 import numpy as np
+from PIL import Image, ImageFilter
+from PIL.ImageQt import ImageQt
 from PyQt5.QtCore import Qt, QRect, QSize, QBuffer
 from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QHBoxLayout, QVBoxLayout, QGridLayout, QLabel,
@@ -9,8 +12,6 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QSlider, QLineEdit, QRubberBand, QMessageBox,
                              QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap, QKeySequence
-from PIL import Image, ImageFilter
-from PIL.ImageQt import ImageQt
 from search import findHoles
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
                      coordsToNavPoints)
@@ -20,15 +21,32 @@ from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
 def npToQImage(ndArr):
     return QPixmap.fromImage(ImageQt(Image.fromarray(ndArr))).toImage()
 
-def QImageToPilRGBA(qimg):
+def qImgToPilRGBA(qimg):
     buf = QBuffer()
     buf.open(QBuffer.ReadWrite)
     qimg.save(buf, "PNG")
     return Image.open(io.BytesIO(buf.data().data())).convert('RGBA')
 
+def qImgToNp(qimg):
+    return np.array(qImgToPilRGBA(qimg))
+
 def gaussianBlur(qimg, radius=5):
-    pilImg = QImageToPilRGBA(qimg).filter(ImageFilter.GaussianBlur(radius))
+    pilImg = qImgToPilRGBA(qimg).filter(ImageFilter.GaussianBlur(radius))
     return QPixmap.fromImage(ImageQt(pilImg)).toImage()
+
+def drawCross(img: 'ndarray', x, y):
+    blue = (0,0,255,255)
+    cv2.line(img, (x-20,y), (x+20,y), blue, 4)
+    cv2.line(img, (x,y-20), (x,y+20), blue, 4)
+
+def drawCrosses(img: 'ndarray', coords):
+    img = np.flip(img, 0).copy()
+    for x, y in coords:
+        drawCross(img, x, y)
+    return np.flip(img, 0).copy()
+
+def drawCoords(qimg, coords):
+    return npToQImage(drawCrosses(qImgToNp(qimg), coords))
 
 # popup messages
 def popup(parent, message):
@@ -39,44 +57,23 @@ def popup(parent, message):
 
 class ImageViewer(QScrollArea):
 
-    def __init__(self, filename=''):
+    def __init__(self):
         super().__init__()
-        self.initUI(filename)
+        self.initUI()
 
-    def initUI(self, filename):
-        self.zoomScale = 1
-        self.img = QImage(filename) # for resizing
-        self.originalCopy = self.img # for cropping
-        self.searchCopy = self.img # display search matches
-        self.blurredCopy = self.img
-        # QImage needs label to resize
+    def initUI(self):
+        self.zoom = 1
+        self.originalImg = QImage()
+        self.blurredImg = QImage()
+        self.activeImg = QImage()
+
+        # need QLabel to setPixmap for images
         self.label = QLabel(self)
         self._refresh()
         self.setWidget(self.label)
 
-    def loadPicture(self, img, newImg=False):
-        if type(img) == str:
-            self.img.load(img)
-        elif type(img) == QImage:
-            self.img = img
-        else:
-            raise TypeError("ImageViewer can't load img of type %s"
-                            % type(img))
-        if newImg:
-            self.originalCopy = self.img
-            self.blurredCopy = gaussianBlur(self.originalCopy)
-            self.zoomScale = 1
-        self.searchCopy = self.img
-        self._refresh()
-
-    def toggleBlur(self, toggle):
-        if toggle:
-            self.loadPicture(self.blurredCopy)
-        else:
-            self.loadPicture(self.originalCopy)
-
     def _refresh(self):
-        # save old slider values to recalculate
+        # save slider values to calculate new positions after zoom
         hBar = self.horizontalScrollBar()
         vBar = self.verticalScrollBar()
         try:
@@ -86,28 +83,60 @@ class ImageViewer(QScrollArea):
             hBarRatio = 0
             vBarRatio = 0
         # resize
-        self.img = self.searchCopy.scaled(
-                                     self.zoomScale * self.searchCopy.size(),
-                                     aspectRatioMode=Qt.KeepAspectRatio)
-        self.label.setPixmap(QPixmap(self.img))
-        self.label.resize(self.img.size())
+        img = self.activeImg.scaled(self.zoom * self.activeImg.size(),
+                                    aspectRatioMode=Qt.KeepAspectRatio)
+        self.label.setPixmap(QPixmap(img))
+        self.label.resize(img.size())
         self.label.repaint()
         hBar.setValue(int(hBarRatio * hBar.maximum()))
         vBar.setValue(int(vBarRatio * vBar.maximum()))
 
+    def _setActiveImg(self, img):
+        self.activeImg = img
+        self._refresh()
+
+    def newImg(self, img):
+        self.zoom = 1
+        self.originalImg = img
+        self.blurredImg = gaussianBlur(self.originalImg)
+        self._setActiveImg(self.originalImg)
+
+    def openFile(self, filename):
+        self.zoom = 1
+        self.originalImg.load(filename)
+        self.blurredImg = gaussianBlur(self.originalImg)
+        self._setActiveImg(self.originalImg)
+
+    def toggleBlur(self, toggle):
+        if toggle:
+            self._setActiveImg(self.blurredImg)
+        else:
+            self._setActiveImg(self.originalImg)
+
     def zoomIn(self):
-        self.zoomScale *= 1.25
+        self.zoom *= 1.25
         self._refresh()
 
     def zoomOut(self):
-        self.zoomScale *= 0.8
+        self.zoom *= 0.8
         self._refresh()
 
 
 class ImageViewerCrop(ImageViewer):
 
-    def __init__(self, filename=''):
-        super().__init__(filename)
+    def __init__(self):
+        super().__init__()
+        self.searchedImg = QImage()
+        self.searchedBlurImg = QImage()
+
+    def toggleBlur(self, toggle):
+        if self.parentWidget().sidebar.coords:
+            if toggle:
+                self._setActiveImg(self.searchedBlurImg)
+            else:
+                self._setActiveImg(self.searchedImg)
+        else:
+            super().toggleBlur(toggle)
 
     def mousePressEvent(self, mouseEvent):
         self.shiftPressed = QApplication.keyboardModifiers() == Qt.ShiftModifier
@@ -131,22 +160,22 @@ class ImageViewerCrop(ImageViewer):
     def mouseReleaseEvent(self, mouseEvent):
         self.rband.hide()
         crop = self.rband.geometry()
-        if self.img.isNull(): # no image loaded in
+        if self.originalImg.isNull(): # no image loaded in
             return
         # handle single click initializing default QRect selecting entire image
         if crop.height() < 10 and crop.width() < 10:
             return
         # calculate X and Y position in original image
-        X = int((self.horizontalScrollBar().value()+crop.x()) / self.zoomScale)
-        Y = int((self.verticalScrollBar().value()+crop.y()) / self.zoomScale)
-        origScaleCropWidth = int(crop.width() / self.zoomScale)
-        origScaleCropHeight = int(crop.height() / self.zoomScale)
+        X = int((self.horizontalScrollBar().value()+crop.x()) / self.zoom)
+        Y = int((self.verticalScrollBar().value()+crop.y()) / self.zoom)
+        origScaleCropWidth = int(crop.width() / self.zoom)
+        origScaleCropHeight = int(crop.height() / self.zoom)
         # save crop
-        cropQImage = self.originalCopy.copy(QRect(X, Y, origScaleCropWidth,
+        cropQImage = self.originalImg.copy(QRect(X, Y, origScaleCropWidth,
                                                          origScaleCropHeight))
         sidebar = self.parentWidget().sidebar
         sidebar.cbBlurTemp.setCheckState(Qt.Unchecked)
-        sidebar.crop_template.loadPicture(cropQImage, newImg=True)
+        sidebar.crop_template.newImg(cropQImage)
 
 
 class Sidebar(QWidget):
@@ -228,6 +257,12 @@ class Sidebar(QWidget):
         vlay.addStretch(1)
         self.setLayout(vlay)
 
+    def blurTemp(self):
+        self.crop_template.toggleBlur(self.cbBlurTemp.isChecked())
+
+    def blurImg(self):
+        self.parentWidget().viewer.toggleBlur(self.cbBlurImg.isChecked())
+
     def _setThreshDisp(self, i: int):
         self.thresholdVal = float("{:.{}f}".format(i / 10**self.sldPrec,
                                                    self.sldPrec))
@@ -240,43 +275,36 @@ class Sidebar(QWidget):
         except ValueError:
             pass
 
-    def _setGroupRadius(self, s: str):
-        try:
-            self.groupRadius = float("{:.1f}".format(float(s)))
-            self.groupRadiusLineEdit.setText(str(self.groupRadius))
-        except:
-            pass
-
-    def _setPixelSize(self, s: str):
-        try:
-            self.pixelSizeNm = float("{:.1f}".format(float(s)))
-            self.pixelSizeLineEdit.setText(str(self.pixelSizeNm))
-        except:
-            pass
-
-    def blurTemp(self):
-        self.crop_template.toggleBlur(self.cbBlurTemp.isChecked())
-
-    def blurImg(self):
-        self.parentWidget().viewer.toggleBlur(self.cbBlurImg.isChecked())
-
     def _templateSearch(self):
-        templ = (self.crop_template.blurredCopy if self.cbBlurTemp.isChecked()
-                    else self.crop_template.originalCopy)
-        img = (self.parentWidget().viewer.blurredCopy
+        templ = (self.crop_template.blurredImg if self.cbBlurTemp.isChecked()
+                    else self.crop_template.originalImg)
+        img = (self.parentWidget().viewer.blurredImg
                if self.cbBlurImg.isChecked()
-               else self.parentWidget().viewer.originalCopy)
-        try:
-            self.coords, img_ndArr = findHoles(np.array(QImageToPilRGBA(img)),
-                                          np.array(QImageToPilRGBA(templ)),
-                                          threshold=self.thresholdVal)
-            img = npToQImage(img_ndArr)
-            self.parentWidget().viewer.loadPicture(img)
-        except:
+               else self.parentWidget().viewer.originalImg)
+        if img.isNull() or templ.isNull():
             popup(self, "either image or template missing")
+            return
+
+        self.coords = findHoles(qImgToNp(img), qImgToNp(templ),
+                                self.thresholdVal)
+        viewer = self.parentWidget().viewer
+        viewer.searchedImg = drawCoords(viewer.originalImg, self.coords)
+        viewer.searchedBlurImg = drawCoords(viewer.blurredImg, self.coords)
+        viewer._setActiveImg(viewer.searchedImg)
+        self.cbBlurImg.setCheckState(Qt.Unchecked)
+        self.repaint()
 
     def printCoordinates(self):
         popup(self, f"{len(self.coords)} points: {str(self.coords)}")
+
+    def _clearPts(self):
+        self.coords = []
+        self.cbBlurImg.setCheckState(Qt.Unchecked)
+        viewer = self.parentWidget().viewer
+        viewer._setActiveImg(viewer.originalImg)
+        viewer.searchedImg = QImage()
+        viewer.searchedBlurImg = QImage()
+        viewer._refresh()
 
     def generateAutoDocFile(self):
         # error checking
@@ -312,12 +340,19 @@ class Sidebar(QWidget):
     def _toggleGroupPoints(self):
         self.groupPoints = self.cbGroupPoints.isChecked()
 
-    def _clearPts(self):
-        self.coords = []
-        parent = self.parentWidget()
-        self.cbBlurImg.setCheckState(Qt.Unchecked)
-        parent.viewer.loadPicture(parent.viewer.originalCopy)
-        self.update()
+    def _setGroupRadius(self, s: str):
+        try:
+            self.groupRadius = float("{:.1f}".format(float(s)))
+            self.groupRadiusLineEdit.setText(str(self.groupRadius))
+        except:
+            pass
+
+    def _setPixelSize(self, s: str):
+        try:
+            self.pixelSizeNm = float("{:.1f}".format(float(s)))
+            self.pixelSizeLineEdit.setText(str(self.pixelSizeNm))
+        except:
+            pass
 
 
 class MainWidget(QWidget):
@@ -382,7 +417,7 @@ class MainWindow(QMainWindow):
         print(filename)
         if filename:
             try:
-                self.root.viewer.loadPicture(filename, newImg=True)
+                self.root.viewer.openFile(filename)
                 self.root.sidebar.cbBlurImg.setCheckState(Qt.Unchecked)
             except:
                 popup(self, "could not load image")
