@@ -12,7 +12,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QSlider, QLineEdit, QRubberBand, QMessageBox,
                              QInputDialog)
 from PyQt5.QtGui import QImage, QPixmap, QKeySequence
-from search import findHoles
+from search import templateMatch
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
                      coordsToNavPoints)
 
@@ -293,7 +293,7 @@ class Sidebar(QWidget):
             popup(self, "either image or template missing")
             return
 
-        self.coords = findHoles(qImgToNp(img), qImgToNp(templ),
+        self.coords = templateMatch(qImgToNp(img), qImgToNp(templ),
                                 self.thresholdVal)
         viewer = self.parentWidget().viewer
         viewer.searchedImg = drawCoords(viewer.originalImg, self.coords)

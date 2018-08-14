@@ -19,14 +19,13 @@ def pointsExistWithinRadius(center, coords, radius):
 
 # modified from OpenCV docs
 # https://docs.opencv.org/3.4/d4/dc6/tutorial_py_template_matching.html
-def findHoles(img: 'ndarray', template: 'ndarray', threshold=0.8):
+def templateMatch(img: 'ndarray', template: 'ndarray', threshold=0.8):
     """Returns coordinate list of positions with the highest cross-correlation
     to the template array and also returns the same input array with blue
     crosses at each coordinate.
 
     0,0 is at the bottom-left corner, with +y going up and +x going right.
     """
-
     img = np.flip(img, 0).copy()
     template = np.flip(template, 0).copy()
     h, w, *_ = template.shape
@@ -34,7 +33,7 @@ def findHoles(img: 'ndarray', template: 'ndarray', threshold=0.8):
     loc = zip(*np.where(xcorrScores >= threshold))
     scoresIndex = [(x, y, xcorrScores[y][x]) for y, x in loc]
     scoresIndex.sort(key=lambda a: a[2], reverse=True)
-    # write back to img
+
     matches = []
     for x, y, _ in scoresIndex:
         x += w//2
