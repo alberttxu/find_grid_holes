@@ -35,7 +35,6 @@ def isValidAutodoc(navfile):
             for line in f:
                 if line.strip():
                     if line.split()[0] == 'AdocVersion':
-                        print(line)
                         return True
                     else:
                         print("error: could not find AdocVersion")
@@ -85,7 +84,7 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
                 subLabel += 1
             label += 1
     else:
-        for pt in self.coords:
+        for pt in coords:
             navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID))
             label += 1
 
