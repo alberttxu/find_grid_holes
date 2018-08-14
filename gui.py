@@ -192,6 +192,10 @@ class Sidebar(QWidget):
         self.pixelSizeNm = 10 # nanometers per pixel
         self.groupPoints = True
         self.groupRadius = 7 # µm
+        self.lastGroupSize = 0
+        self.lastMapLabel = ''
+        self.lastStartLabel = 0
+        self.generatedNav = ''
         self.coords = []
 
         # widgets
@@ -215,9 +219,12 @@ class Sidebar(QWidget):
         buttonPrintCoord.clicked.connect(self.printCoordinates)
         buttonClearPts = QPushButton('Clear Points')
         buttonClearPts.clicked.connect(self._clearPts)
-        buttonAutoDoc = QPushButton('Generate autodoc file')
-        buttonAutoDoc.resize(buttonAutoDoc.sizeHint())
-        buttonAutoDoc.clicked.connect(self.generateAutoDocFile)
+        buttonNewNavFile = QPushButton('Generate new nav file')
+        buttonNewNavFile.resize(buttonNewNavFile.sizeHint())
+        buttonNewNavFile.clicked.connect(self.generateNavFile)
+        buttonAppendNav = QPushButton('Append to new nav file')
+        buttonAppendNav.resize(buttonNewNavFile.sizeHint())
+        buttonAppendNav.clicked.connect(self.appendToNavFile)
         self.cbGroupPoints = QCheckBox('Group points')
         self.cbGroupPoints.setCheckState(Qt.Checked)
         self.cbGroupPoints.clicked.connect(self._toggleGroupPoints)
@@ -252,7 +259,8 @@ class Sidebar(QWidget):
         groupPtsLay.addWidget(QLabel('PixelSize'), 3, 0)
         groupPtsLay.addWidget(self.pixelSizeLineEdit, 3, 1)
         groupPtsLay.addWidget(QLabel('nm'), 3, 2)
-        vlay.addWidget(buttonAutoDoc)
+        vlay.addWidget(buttonNewNavFile)
+        vlay.addWidget(buttonAppendNav)
         vlay.addLayout(groupPtsLay)
         vlay.addStretch(1)
         self.setLayout(vlay)
@@ -306,7 +314,7 @@ class Sidebar(QWidget):
         viewer.searchedBlurImg = QImage()
         viewer._refresh()
 
-    def generateAutoDocFile(self):
+    def generateNavFile(self):
         # error checking
         navfileLines = self.parentWidget().parentWidget().navfileLines
         if not navfileLines: # not loaded in
@@ -314,28 +322,71 @@ class Sidebar(QWidget):
             popup(self, "navfile not loaded in")
             return
         mapLabel, okClicked = QInputDialog.getText(self, "label number",
-                                          "enter label # of map to merge onto")
+                                          "enter label # of map to merge onto",
+                                          text=self.lastMapLabel)
         if not okClicked: return
         if not isValidLabel(navfileLines, mapLabel):
             popup(self, "label not found")
             return
         startLabel, okClicked = QInputDialog.getInt(self, "label number",
-                                          "enter starting label of new items")
+                                          "enter starting label of new items",
+                                          value=self.lastStartLabel
+                                                + self.lastGroupSize)
         if not okClicked: return
         filename = QFileDialog.getSaveFileName(self, "Save points")[0]
         if filename == '' : return
 
-        # after passing all checks
+        # write to file
         mapSection = sectionAsDict(navfileLines, mapLabel)
         groupRadiusPixels = 1000 * self.groupRadius / self.pixelSizeNm
-        navPoints = coordsToNavPoints(self.coords, mapSection, startLabel,
-                                      self.groupPoints, groupRadiusPixels)
-
+        navPoints, numGroups = coordsToNavPoints(self.coords, mapSection,
+                                                 startLabel, self.groupPoints,
+                                                 groupRadiusPixels)
         with open(filename, 'w') as f:
             f.write('AdocVersion = 2.00\n\n')
             for navPoint in navPoints:
                 f.write(navPoint.toString())
-        popup(self, "autodoc created")
+        popup(self, "nav file created")
+        # update fields
+        self.generatedNav = filename
+        self.lastGroupSize = numGroups
+        self.lastStartLabel = startLabel
+        self.lastMapLabel = mapLabel
+
+    def appendToNavFile(self):
+        # error checking
+        navfileLines = self.parentWidget().parentWidget().navfileLines
+        if not navfileLines: # not loaded in
+            print("navfile not loaded in")
+            popup(self, "navfile not loaded in")
+            return
+        mapLabel, okClicked = QInputDialog.getText(self, "label number",
+                                          "enter label # of map to merge onto",
+                                          text=self.lastMapLabel)
+        if not okClicked: return
+        if not isValidLabel(navfileLines, mapLabel):
+            popup(self, "label not found")
+            return
+        startLabel, okClicked = QInputDialog.getInt(self, "label number",
+                                          "enter starting label of new items",
+                                          value=self.lastStartLabel
+                                                + self.lastGroupSize)
+        if not okClicked: return
+
+        # append to file
+        mapSection = sectionAsDict(navfileLines, mapLabel)
+        groupRadiusPixels = 1000 * self.groupRadius / self.pixelSizeNm
+        navPoints, numGroups = coordsToNavPoints(self.coords, mapSection,
+                                                 startLabel, self.groupPoints,
+                                                 groupRadiusPixels)
+        with open(self.generatedNav, 'a') as f:
+            for navPoint in navPoints:
+                f.write(navPoint.toString())
+        popup(self, "points added to nav file")
+        # update fields
+        self.lastGroupSize = numGroups
+        self.lastStartLabel = startLabel
+        self.lastMapLabel = mapLabel
 
     def _toggleGroupPoints(self):
         self.groupPoints = self.cbGroupPoints.isChecked()

@@ -64,8 +64,8 @@ def sectionAsDict(data: 'list', label: str):
         result[key] = val
     return result
 
-def coordsToNavPoints(coords, mapSection: 'Dict', startLabel, groupPoints,
-                                                              groupRadiusPix):
+def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
+                      groupPoints, groupRadiusPix):
     regis = int(mapSection['Regis'][0])
     drawnID = int(mapSection['MapID'][0])
     zHeight = float(mapSection['StageXYZ'][2])
@@ -88,5 +88,7 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel, groupPoints,
         for pt in self.coords:
             navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID))
             label += 1
-    return navPoints
+
+    numGroups = label - startLabel
+    return navPoints, numGroups
 
