@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QScrollArea, QPushButton, QFileDialog, QCheckBox,
                              QSlider, QLineEdit, QRubberBand, QMessageBox,
                              QInputDialog, QDoubleSpinBox)
-from PyQt5.QtGui import QImage, QPixmap, QKeySequence
+from PyQt5.QtGui import QImage, QPixmap, QKeySequence, QPalette, QBrush
 from search import templateMatch
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
                      coordsToNavPoints)
@@ -146,6 +146,10 @@ class ImageViewerCrop(ImageViewer):
         self.rband.show()
 
     def mouseMoveEvent(self, mouseEvent):
+        # make rubber band blue (only works on windows os)
+        palette = QPalette()
+        palette.setBrush(QPalette.Highlight, QBrush(Qt.blue))
+
         # unnormalized QRect can have negative width/height
         crop = QRect(2*self.center - mouseEvent.pos(),
                      mouseEvent.pos()).normalized()
@@ -156,6 +160,7 @@ class ImageViewerCrop(ImageViewer):
                                    largerSide, largerSide)
         else:
             self.rband.setGeometry(crop)
+        self.rband.setPalette(palette)
 
     def mouseReleaseEvent(self, mouseEvent):
         self.rband.hide()
