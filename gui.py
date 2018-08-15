@@ -101,12 +101,6 @@ class ImageViewer(QScrollArea):
         self.blurredImg = gaussianBlur(self.originalImg)
         self._setActiveImg(self.originalImg)
 
-    def openFile(self, filename):
-        self.zoom = 1
-        self.originalImg.load(filename)
-        self.blurredImg = gaussianBlur(self.originalImg)
-        self._setActiveImg(self.originalImg)
-
     def toggleBlur(self, toggle):
         if toggle:
             self._setActiveImg(self.blurredImg)
@@ -128,6 +122,12 @@ class ImageViewerCrop(ImageViewer):
         super().__init__()
         self.searchedImg = QImage()
         self.searchedBlurImg = QImage()
+
+    def openFile(self, filename):
+        self.zoom = 1
+        self.originalImg.load(filename)
+        self.blurredImg = gaussianBlur(self.originalImg)
+        self.parentWidget().sidebar._clearPts()
 
     def toggleBlur(self, toggle):
         if self.parentWidget().sidebar.coords:
