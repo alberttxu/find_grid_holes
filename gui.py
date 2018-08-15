@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QHBoxLayout, QVBoxLayout, QGridLayout, QLabel,
                              QScrollArea, QPushButton, QFileDialog, QCheckBox,
                              QSlider, QLineEdit, QRubberBand, QMessageBox,
-                             QInputDialog)
+                             QInputDialog, QDoubleSpinBox)
 from PyQt5.QtGui import QImage, QPixmap, QKeySequence
 from search import templateMatch
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
@@ -36,8 +36,8 @@ def gaussianBlur(qimg, radius=5):
 
 def drawCross(img: 'ndarray', x, y):
     blue = (0,0,255,255)
-    cv2.line(img, (x-20,y), (x+20,y), blue, 4)
-    cv2.line(img, (x,y-20), (x,y+20), blue, 4)
+    cv2.line(img, (x-10,y), (x+10,y), blue, 3)
+    cv2.line(img, (x,y-10), (x,y+10), blue, 3)
 
 def drawCrosses(img: 'ndarray', coords):
     img = np.flip(img, 0).copy()
@@ -208,10 +208,13 @@ class Sidebar(QWidget):
         self.slider = QSlider(Qt.Horizontal)
         self.slider.setMaximum(10**self.sldPrec)
         self.slider.valueChanged.connect(self._setThreshDisp)
-        self.threshDisp = QLineEdit()
-        self.threshDisp.returnPressed.connect(
-                         lambda: self._setThreshSlider(self.threshDisp.text()))
-        self.slider.setValue(self.thresholdVal * 10**self.sldPrec)
+        self.threshDisp = QDoubleSpinBox()
+        self.threshDisp.setMaximum(1)
+        self.threshDisp.setSingleStep(0.05)
+        self.threshDisp.setDecimals(self.sldPrec)
+        self.threshDisp.valueChanged.connect(
+                         self._setThreshSlider)
+        self.threshDisp.setValue(0.8)
         buttonSearch = QPushButton('Search')
         buttonSearch.clicked.connect(self._templateSearch)
         buttonPrintCoord = QPushButton('Print Coordinates')
@@ -272,14 +275,12 @@ class Sidebar(QWidget):
         self.parentWidget().viewer.toggleBlur(self.cbBlurImg.isChecked())
 
     def _setThreshDisp(self, i: int):
-        self.thresholdVal = float("{:.{}f}".format(i / 10**self.sldPrec,
-                                                   self.sldPrec))
-        self.threshDisp.setText(str(self.thresholdVal))
+        self.threshDisp.setValue(i / 10**self.sldPrec)
 
-    def _setThreshSlider(self, s: str):
+    def _setThreshSlider(self, val: float):
         try:
-            self.slider.setValue(int(10**self.sldPrec * float(s)))
-            self.thresholdVal = float("{:.{}f}".format(float(s), self.sldPrec))
+            self.slider.setValue(int(10**self.sldPrec * val))
+            self.thresholdVal = val
         except ValueError:
             pass
 
@@ -298,8 +299,9 @@ class Sidebar(QWidget):
         viewer = self.parentWidget().viewer
         viewer.searchedImg = drawCoords(viewer.originalImg, self.coords)
         viewer.searchedBlurImg = drawCoords(viewer.blurredImg, self.coords)
-        viewer._setActiveImg(viewer.searchedImg)
-        self.cbBlurImg.setCheckState(Qt.Unchecked)
+        viewer._setActiveImg(viewer.searchedBlurImg
+                             if self.cbBlurImg.isChecked()
+                             else viewer.searchedImg)
         self.repaint()
 
     def printCoordinates(self):
@@ -315,6 +317,12 @@ class Sidebar(QWidget):
         viewer._refresh()
 
     def generateNavFile(self):
+        self._writeToNavFile(isNew=True)
+
+    def appendToNavFile(self):
+        self._writeToNavFile(isNew=False)
+
+    def _writeToNavFile(self, isNew):
         # error checking
         navfileLines = self.parentWidget().parentWidget().navfileLines
         if not navfileLines: # not loaded in
@@ -333,8 +341,9 @@ class Sidebar(QWidget):
                                           value=self.lastStartLabel
                                                 + self.lastGroupSize)
         if not okClicked: return
-        filename = QFileDialog.getSaveFileName(self, "Save points")[0]
-        if filename == '' : return
+        if isNew:
+            filename = QFileDialog.getSaveFileName(self, "Save points")[0]
+            if filename == '' : return
 
         # write to file
         mapSection = sectionAsDict(navfileLines, mapLabel)
@@ -342,47 +351,18 @@ class Sidebar(QWidget):
         navPoints, numGroups = coordsToNavPoints(self.coords, mapSection,
                                                  startLabel, self.groupPoints,
                                                  groupRadiusPixels)
-        with open(filename, 'w') as f:
-            f.write('AdocVersion = 2.00\n\n')
-            for navPoint in navPoints:
-                f.write(navPoint.toString())
-        popup(self, "nav file created")
-        # update fields
-        self.generatedNav = filename
-        self.lastGroupSize = numGroups
-        self.lastStartLabel = startLabel
-        self.lastMapLabel = mapLabel
-
-    def appendToNavFile(self):
-        # error checking
-        navfileLines = self.parentWidget().parentWidget().navfileLines
-        if not navfileLines: # not loaded in
-            print("navfile not loaded in")
-            popup(self, "navfile not loaded in")
-            return
-        mapLabel, okClicked = QInputDialog.getText(self, "label number",
-                                          "enter label # of map to merge onto",
-                                          text=self.lastMapLabel)
-        if not okClicked: return
-        if not isValidLabel(navfileLines, mapLabel):
-            popup(self, "label not found")
-            return
-        startLabel, okClicked = QInputDialog.getInt(self, "label number",
-                                          "enter starting label of new items",
-                                          value=self.lastStartLabel
-                                                + self.lastGroupSize)
-        if not okClicked: return
-
-        # append to file
-        mapSection = sectionAsDict(navfileLines, mapLabel)
-        groupRadiusPixels = 1000 * self.groupRadius / self.pixelSizeNm
-        navPoints, numGroups = coordsToNavPoints(self.coords, mapSection,
-                                                 startLabel, self.groupPoints,
-                                                 groupRadiusPixels)
-        with open(self.generatedNav, 'a') as f:
-            for navPoint in navPoints:
-                f.write(navPoint.toString())
-        popup(self, "points added to nav file")
+        if isNew:
+            with open(filename, 'w') as f:
+                f.write('AdocVersion = 2.00\n\n')
+                for navPoint in navPoints:
+                    f.write(navPoint.toString())
+            popup(self, "nav file created")
+            self.generatedNav = filename
+        else:
+            with open(self.generatedNav, 'a') as f:
+                for navPoint in navPoints:
+                    f.write(navPoint.toString())
+            popup(self, "points added to nav file")
         # update fields
         self.lastGroupSize = numGroups
         self.lastStartLabel = startLabel
