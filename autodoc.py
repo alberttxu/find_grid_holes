@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-from search import makeGroupsOfPoints, closestPtToCentroid
+from search import (makeGroupsOfPoints, closestPtToCentroid,
+                    greedyPathThroughPts)
 
 class NavFilePoint:
 
@@ -84,7 +85,8 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
                 subLabel += 1
             label += 1
     else:
-        for pt in coords:
+        #for pt in coords:
+        for pt in greedyPathThroughPts(coords):
             navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID))
             label += 1
 

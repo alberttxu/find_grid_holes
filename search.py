@@ -75,3 +75,25 @@ def makeGroupsOfPoints(pts, max_radius):
         groups.append(group)
     return groups
 
+def greedyPathThroughPts(coords):
+    """Returns a list with the first item being the left most coordinate,
+       and successive items being the minimum distance from the previous item.
+    """
+    coords = [tuple(pt) for pt in coords]
+    leftMostPt = sorted(coords, key=lambda x: x[0])[0]
+    unvisitedPts = set(coords)
+    unvisitedPts.remove(leftMostPt)
+
+    result = [leftMostPt]
+    while unvisitedPts:
+        closestPtToPrev = unvisitedPts.pop()
+        unvisitedPts.add(closestPtToPrev)
+        minDist = squareDist(closestPtToPrev, result[-1])
+        for pt in unvisitedPts:
+            distFromPrev = squareDist(pt, result[-1])
+            if distFromPrev < minDist:
+                minDist = distFromPrev
+                closestPtToPrev = pt
+        result.append(closestPtToPrev)
+        unvisitedPts.remove(closestPtToPrev)
+    return result
