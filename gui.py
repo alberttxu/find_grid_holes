@@ -128,6 +128,7 @@ class ImageViewerCrop(ImageViewer):
         self.originalImg.load(filename)
         self.blurredImg = gaussianBlur(self.originalImg)
         self.parentWidget().sidebar._clearPts()
+        self.parentWidget().parentWidget().setWindowTitle(filename)
 
     def toggleBlur(self, toggle):
         if self.parentWidget().sidebar.coords:
@@ -444,7 +445,6 @@ class MainWindow(QMainWindow):
         viewMenu.addAction(zoomOut)
 
         self.setGeometry(300, 300, 1000, 1000)
-        self.setWindowTitle('Title')
         self.show()
 
     def imgFileDialog(self):
