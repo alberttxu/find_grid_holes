@@ -215,8 +215,9 @@ class Sidebar(QWidget):
         self.slider.setMaximum(10**self.sldPrec)
         self.slider.valueChanged.connect(self._setThreshDisp)
         self.threshDisp = QDoubleSpinBox()
+        self.threshDisp.setFixedHeight(40)
         self.threshDisp.setMaximum(1)
-        self.threshDisp.setSingleStep(0.05)
+        self.threshDisp.setSingleStep(0.01)
         self.threshDisp.setDecimals(self.sldPrec)
         self.threshDisp.valueChanged.connect(
                          self._setThreshSlider)
