@@ -30,7 +30,6 @@ def templateMatch(img: 'ndarray', template: 'ndarray', threshold=0.8,
     0,0 is at the bottom-left corner, with +y going up and +x going right.
     """
 
-    # internally downsample image 8x for faster computation
     img = np.stack((imresize(img[:,:,i], 1/downSample)
                     for i in range(4)), axis=2)
     template = np.stack((imresize(template[:,:,i], 1/downSample)
@@ -39,7 +38,6 @@ def templateMatch(img: 'ndarray', template: 'ndarray', threshold=0.8,
     img = np.flip(img, 0).copy()
     template = np.flip(template, 0).copy()
     h, w, *_ = template.shape
-    #print(h, w, _)
     xcorrScores = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
     loc = zip(*np.where(xcorrScores >= threshold))
     scoresIndex = [(x, y, xcorrScores[y][x]) for y, x in loc]
