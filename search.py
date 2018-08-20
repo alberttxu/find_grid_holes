@@ -20,24 +20,27 @@ def pointsExistWithinRadius(center, coords, radius):
 
 # modified from OpenCV docs
 # https://docs.opencv.org/3.4/d4/dc6/tutorial_py_template_matching.html
-def templateMatch(img: 'ndarray', templ: 'ndarray', threshold=0.8):
+def templateMatch(img: 'ndarray', template: 'ndarray', threshold=0.8,
+                  downSample=4):
     """Returns coordinate list of positions with the highest cross-correlation
     to the template array and also returns the same input array with blue
-    crosses at each coordinate. Images are internally downsampled 8x for faster
-    computation.
+    crosses at each coordinate. Images are internally downsampled for faster
+    computation and noise reduction.
 
     0,0 is at the bottom-left corner, with +y going up and +x going right.
     """
 
     # internally downsample image 8x for faster computation
-    img = np.stack((imresize(img[:,:,i], 0.125) for i in range(4)), axis=2)
-    templ = np.stack((imresize(templ[:,:,i], 0.125) for i in range(4)), axis=2)
+    img = np.stack((imresize(img[:,:,i], 1/downSample)
+                    for i in range(4)), axis=2)
+    template = np.stack((imresize(template[:,:,i], 1/downSample)
+                        for i in range(4)), axis=2)
     # flip both arrays upsidedown because of coordinate-axes
     img = np.flip(img, 0).copy()
-    templ = np.flip(templ, 0).copy()
-    h, w, *_ = templ.shape
+    template = np.flip(template, 0).copy()
+    h, w, *_ = template.shape
     #print(h, w, _)
-    xcorrScores = cv2.matchTemplate(img, templ, cv2.TM_CCOEFF_NORMED)
+    xcorrScores = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
     loc = zip(*np.where(xcorrScores >= threshold))
     scoresIndex = [(x, y, xcorrScores[y][x]) for y, x in loc]
     scoresIndex.sort(key=lambda a: a[2], reverse=True)
@@ -49,7 +52,7 @@ def templateMatch(img: 'ndarray', templ: 'ndarray', threshold=0.8):
         if not pointsExistWithinRadius((x,y), matches, radius=max(h,w)):
             matches.append((x,y))
     # multiply back to get correct coordinates
-    matches = [(8*x, 8*y) for x,y in matches]
+    matches = [(downSample*x, downSample*y) for x,y in matches]
     return matches
 
 def centroid(pts: 'ndarray'):
