@@ -74,6 +74,7 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
     label = startLabel
     if groupPoints:
         for group in makeGroupsOfPoints(coords, groupRadiusPix):
+            group = greedyPathThroughPts(group)
             subLabel = 1
             groupID = id(group)
             groupLeader = closestPtToCentroid(group)
@@ -85,7 +86,6 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
                 subLabel += 1
             label += 1
     else:
-        #for pt in coords:
         for pt in greedyPathThroughPts(coords):
             navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID))
             label += 1
