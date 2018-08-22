@@ -71,21 +71,6 @@ def closestPtToCentroid(pts):
             msd = dist_2
     return closestPoint
 
-def makeGroupsOfPoints(pts, max_radius):
-    pts = [tuple(pt) for pt in sorted(pts, key=lambda pt: pt[0])]
-    max_rad_2 = max_radius ** 2
-    groups = []
-    unprocessedPts = set(pts)
-    while unprocessedPts:
-        x = unprocessedPts.pop()
-        group = [x]
-        for pt in pts:
-            if pt in unprocessedPts and squareDist(x, pt) < max_rad_2:
-                group.append(pt)
-                unprocessedPts.remove(pt)
-        groups.append(group)
-    return groups
-
 def greedyPathThroughPts(coords):
     """Returns a list with the first item being the left most coordinate,
        and successive items being the minimum distance from the previous item.
@@ -108,3 +93,21 @@ def greedyPathThroughPts(coords):
         result.append(closestPtToPrev)
         unvisitedPts.remove(closestPtToPrev)
     return result
+
+def makeGroupsOfPoints(pts, max_radius):
+    max_radius_2 = max_radius ** 2
+    groups = []
+    greedyPath = greedyPathThroughPts(pts)[::-1]
+    group = [greedyPath.pop()]
+    while greedyPath:
+        pt = greedyPath.pop()
+        if squareDist(pt, group[0]) < max_radius_2:
+            group.append(pt)
+        else:
+            groups.append(group)
+            group = [pt]
+    for i in range(len(groups)):
+        groupLeader = closestPtToCentroid(groups[i])
+        groups[i] = [groupLeader] + [pt for pt in groups[i] if pt != groupLeader]
+    return groups
+
