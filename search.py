@@ -106,6 +106,9 @@ def makeGroupsOfPoints(pts, max_radius):
         else:
             groups.append(group)
             group = [pt]
+    if group:
+        groups.append(group)
+
     for i in range(len(groups)):
         groupLeader = closestPtToCentroid(groups[i])
         groups[i] = [groupLeader] + [pt for pt in groups[i] if pt != groupLeader]
