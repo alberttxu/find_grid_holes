@@ -235,8 +235,9 @@ class Sidebar(QWidget):
         buttonAppendNav = QPushButton('Append to new nav file')
         buttonAppendNav.resize(buttonNewNavFile.sizeHint())
         buttonAppendNav.clicked.connect(self.appendToNavFile)
+        self.cbAcquire = QCheckBox('Acquire')
+        self.cbAcquire.setCheckState(Qt.Checked)
         self.cbGroupPoints = QCheckBox('Group points')
-        self.cbGroupPoints.setCheckState(Qt.Checked)
         self.cbGroupPoints.clicked.connect(self._toggleGroupPoints)
         self.groupRadiusLineEdit = QLineEdit()
         self.groupRadiusLineEdit.returnPressed.connect(
@@ -260,7 +261,6 @@ class Sidebar(QWidget):
         vlay.addWidget(buttonPrintCoord)
         vlay.addWidget(buttonClearPts)
         vlay.addWidget(QLabel())
-        #groupPtsLay = QHBoxLayout()
         groupPtsLay = QGridLayout()
         groupPtsLay.addWidget(self.cbGroupPoints, 1, 0)
         groupPtsLay.addWidget(QLabel('Group Radius'), 2, 0)
@@ -271,6 +271,7 @@ class Sidebar(QWidget):
         groupPtsLay.addWidget(QLabel('nm'), 3, 2)
         vlay.addWidget(buttonNewNavFile)
         vlay.addWidget(buttonAppendNav)
+        vlay.addWidget(self.cbAcquire)
         vlay.addLayout(groupPtsLay)
         vlay.addStretch(1)
         self.setLayout(vlay)
@@ -355,9 +356,10 @@ class Sidebar(QWidget):
         # write to file
         mapSection = sectionAsDict(navfileLines, mapLabel)
         groupRadiusPixels = 1000 * self.groupRadius / self.pixelSizeNm
+        acquire = int(self.cbAcquire.isChecked())
         navPoints, numGroups = coordsToNavPoints(self.coords, mapSection,
                                                  startLabel, self.groupPoints,
-                                                 groupRadiusPixels)
+                                                 groupRadiusPixels, acquire)
         if isNew:
             with open(filename, 'w') as f:
                 f.write('AdocVersion = 2.00\n\n')
@@ -403,11 +405,11 @@ class MainWidget(QWidget):
         self.sidebar = Sidebar()
         self.viewer = ImageViewerCrop()
 
-        self.grid = QGridLayout()
-        self.grid.setSpacing(10)
-        self.grid.addWidget(self.sidebar, 1, 0, 1, 1)
-        self.grid.addWidget(self.viewer, 1, 1, 5, 5)
-        self.setLayout(self.grid)
+        grid = QGridLayout()
+        grid.setSpacing(10)
+        grid.addWidget(self.sidebar, 1, 0, 1, 1)
+        grid.addWidget(self.viewer, 1, 1, 5, 5)
+        self.setLayout(grid)
 
 
 class MainWindow(QMainWindow):

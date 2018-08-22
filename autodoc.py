@@ -6,7 +6,7 @@ class NavFilePoint:
 
     def __init__(self, label: str, regis: int, ptsX: int, ptsY: int,
             zHeight: float, drawnID: int, numPts: int = 1, itemType: int = 0,
-            color: int = 0, groupID: int = 0, **kwargs):
+            color: int = 0, groupID: int = 0, acquire: int = 0, **kwargs):
         self._label = label
         self.Color = color
         self.NumPts = numPts
@@ -16,6 +16,7 @@ class NavFilePoint:
         self.PtsY = ptsY
         self.DrawnID = drawnID
         self.GroupID = groupID
+        self.Acquire = acquire
         self.CoordsInMap = [ptsX, ptsY, zHeight]
         vars(self).update(kwargs)
 
@@ -65,7 +66,7 @@ def sectionAsDict(data: 'list', label: str):
     return result
 
 def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
-                      groupPoints, groupRadiusPix):
+                      groupPoints, groupRadiusPix, acquire):
     regis = int(mapSection['Regis'][0])
     drawnID = int(mapSection['MapID'][0])
     zHeight = float(mapSection['StageXYZ'][2])
@@ -79,7 +80,7 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
             for pt in group:
                 navPoints.append(NavFilePoint(f"{label}-{subLabel}", regis,
                                               *pt, zHeight, drawnID,
-                                              groupID=groupID))
+                                              groupID=groupID, acquire=acquire))
                 subLabel += 1
             label += 1
     else:
