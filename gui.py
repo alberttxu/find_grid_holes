@@ -238,7 +238,6 @@ class Sidebar(QWidget):
         self.cbAcquire = QCheckBox('Acquire')
         self.cbAcquire.setCheckState(Qt.Checked)
         self.cbGroupPoints = QCheckBox('Group points')
-        self.cbGroupPoints.clicked.connect(self._toggleGroupPoints)
         self.groupRadiusLineEdit = QLineEdit()
         self.groupRadiusLineEdit.returnPressed.connect(
                  lambda: self._setGroupRadius(self.groupRadiusLineEdit.text()))
@@ -357,9 +356,13 @@ class Sidebar(QWidget):
         mapSection = sectionAsDict(navfileLines, mapLabel)
         groupRadiusPixels = 1000 * self.groupRadius / self.pixelSizeNm
         acquire = int(self.cbAcquire.isChecked())
-        navPoints, numGroups = coordsToNavPoints(self.coords, mapSection,
-                                                 startLabel, self.groupPoints,
-                                                 groupRadiusPixels, acquire)
+        navPoints, numGroups = coordsToNavPoints(self.coords,
+                                                mapSection,
+                                                startLabel,
+                                                self.cbGroupPoints.isChecked(),
+                                                groupRadiusPixels,
+                                                acquire)
+
         if isNew:
             with open(filename, 'w') as f:
                 f.write('AdocVersion = 2.00\n\n')
@@ -376,9 +379,6 @@ class Sidebar(QWidget):
         self.lastGroupSize = numGroups
         self.lastStartLabel = startLabel
         self.lastMapLabel = mapLabel
-
-    def _toggleGroupPoints(self):
-        self.groupPoints = self.cbGroupPoints.isChecked()
 
     def _setGroupRadius(self, s: str):
         try:

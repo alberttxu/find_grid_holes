@@ -85,7 +85,8 @@ def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
             label += 1
     else:
         for pt in greedyPathThroughPts(coords):
-            navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID))
+            navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID,
+                                          acquire=acquire))
             label += 1
 
     numGroups = label - startLabel
