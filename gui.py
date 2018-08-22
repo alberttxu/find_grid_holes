@@ -336,6 +336,10 @@ class Sidebar(QWidget):
             print("navfile not loaded in")
             popup(self, "navfile not loaded in")
             return
+        if not isNew and self.generatedNav == '':
+            print("need to generate a new nav file first")
+            popup(self, "need to generate a new nav file first")
+            return
         mapLabel, okClicked = QInputDialog.getText(self, "label number",
                                           "enter label # of map to merge onto",
                                           text=self.lastMapLabel)
