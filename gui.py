@@ -35,9 +35,9 @@ def gaussianBlur(qimg, radius=5):
     return QPixmap.fromImage(ImageQt(pilImg)).toImage()
 
 def drawCross(img: 'ndarray', x, y):
-    blue = (0,0,255,255)
-    cv2.line(img, (x-10,y), (x+10,y), blue, 3)
-    cv2.line(img, (x,y-10), (x,y+10), blue, 3)
+    red = (255,0,0,255)
+    cv2.line(img, (x-15,y), (x+15,y), red, 3)
+    cv2.line(img, (x,y-15), (x,y+15), red, 3)
 
 def drawCrosses(img: 'ndarray', coords):
     img = np.flip(img, 0).copy()
