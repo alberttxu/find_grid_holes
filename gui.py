@@ -363,7 +363,8 @@ class Sidebar(QWidget):
                                                 + self.lastGroupSize)
         if not okClicked: return
         if isNew:
-            filename = QFileDialog.getSaveFileName(self, "Save points")[0]
+            filename = QFileDialog.getSaveFileName(self, "Save points",
+                                                   filter="*.nav")[0]
             if filename == '' : return
 
         # write to file
