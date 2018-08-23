@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QHBoxLayout, QVBoxLayout, QGridLayout, QLabel,
                              QScrollArea, QPushButton, QFileDialog, QCheckBox,
                              QSlider, QLineEdit, QRubberBand, QMessageBox,
-                             QInputDialog, QDoubleSpinBox)
+                             QInputDialog, QDoubleSpinBox, QComboBox)
 from PyQt5.QtGui import QImage, QPixmap, QKeySequence, QPalette, QBrush
 from search import templateMatch
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
@@ -237,8 +237,11 @@ class Sidebar(QWidget):
         buttonAppendNav.clicked.connect(self.appendToNavFile)
         self.cbAcquire = QCheckBox('Acquire')
         self.cbAcquire.setCheckState(Qt.Checked)
-        self.cbGroupPoints = QCheckBox('Group points within mesh')
-        self.cbGroupPoints.clicked.connect(self._toggleGroupLayout)
+        self.cmboxGroupPts = QComboBox()
+        self.cmboxGroupPts.addItem('No Groups')
+        self.cmboxGroupPts.addItem('Groups within mesh')
+        self.cmboxGroupPts.addItem('Entire mesh as one group')
+        self.cmboxGroupPts.currentIndexChanged.connect(self._selectGroupOption)
         self.groupRadiusLabel = QLabel('Group Radius')
         self.groupRadiusLineEdit = QLineEdit()
         self.groupRadiusLineEdit.returnPressed.connect(
@@ -268,16 +271,17 @@ class Sidebar(QWidget):
         vlay.addWidget(buttonNewNavFile)
         vlay.addWidget(buttonAppendNav)
         vlay.addWidget(self.cbAcquire)
-        vlay.addWidget(self.cbGroupPoints)
-        self.groupPtsLay = QGridLayout()
-        self.groupPtsLay.addWidget(self.groupRadiusLabel, 1, 0)
-        self.groupPtsLay.addWidget(self.groupRadiusLineEdit, 1, 1)
-        self.groupPtsLay.addWidget(self.groupRadiusLabelµm, 1, 2)
-        self.groupPtsLay.addWidget(self.pixelSizeLabel, 2, 0)
-        self.groupPtsLay.addWidget(self.pixelSizeLineEdit, 2, 1)
-        self.groupPtsLay.addWidget(self.pixelSizeLabelnm, 2, 2)
-        vlay.addLayout(self.groupPtsLay)
-        self._toggleGroupLayout()
+        vlay.addWidget(QLabel('Grouping option'))
+        vlay.addWidget(self.cmboxGroupPts)
+        self.groupInMeshLay = QGridLayout()
+        self.groupInMeshLay.addWidget(self.groupRadiusLabel, 1, 0)
+        self.groupInMeshLay.addWidget(self.groupRadiusLineEdit, 1, 1)
+        self.groupInMeshLay.addWidget(self.groupRadiusLabelµm, 1, 2)
+        self.groupInMeshLay.addWidget(self.pixelSizeLabel, 2, 0)
+        self.groupInMeshLay.addWidget(self.pixelSizeLineEdit, 2, 1)
+        self.groupInMeshLay.addWidget(self.pixelSizeLabelnm, 2, 2)
+        vlay.addLayout(self.groupInMeshLay)
+        self.cmboxGroupPts.setCurrentIndex(2) # entire mesh as one group
         vlay.addStretch(1)
         self.setLayout(vlay)
 
@@ -366,12 +370,10 @@ class Sidebar(QWidget):
         mapSection = sectionAsDict(navfileLines, mapLabel)
         groupRadiusPixels = 1000 * self.groupRadius / self.pixelSizeNm
         acquire = int(self.cbAcquire.isChecked())
-        navPoints, numGroups = coordsToNavPoints(self.coords,
-                                                mapSection,
-                                                startLabel,
-                                                self.cbGroupPoints.isChecked(),
-                                                groupRadiusPixels,
-                                                acquire)
+        groupOpt = self.cmboxGroupPts.currentIndex()
+        navPoints, numGroups = coordsToNavPoints(self.coords, mapSection,
+                                                 startLabel, acquire, groupOpt,
+                                                 groupRadiusPixels)
 
         if isNew:
             with open(filename, 'w') as f:
@@ -404,8 +406,8 @@ class Sidebar(QWidget):
         except:
             pass
 
-    def _toggleGroupLayout(self):
-        if self.cbGroupPoints.isChecked():
+    def _selectGroupOption(self, i):
+        if i == 1: # groups within mesh
             self.groupRadiusLabel.show()
             self.groupRadiusLineEdit.show()
             self.groupRadiusLabelµm.show()

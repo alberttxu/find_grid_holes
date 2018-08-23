@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-from search import (makeGroupsOfPoints, closestPtToCentroid,
-                    greedyPathThroughPts)
+from search import makeGroupsOfPoints, greedyPathThroughPts
 
 class NavFilePoint:
 
@@ -65,29 +64,36 @@ def sectionAsDict(data: 'list', label: str):
         result[key] = val
     return result
 
-def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int,
-                      groupPoints, groupRadiusPix, acquire):
+def coordsToNavPoints(coords, mapSection: 'Dict', startLabel: int, acquire,
+                      groupOpt: int, groupRadiusPix):
     regis = int(mapSection['Regis'][0])
     drawnID = int(mapSection['MapID'][0])
     zHeight = float(mapSection['StageXYZ'][2])
-
     navPoints = []
     label = startLabel
-    if groupPoints:
+
+    if groupOpt == 0: # no groups
+        for pt in greedyPathThroughPts(coords):
+            navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID,
+                                          acquire=acquire))
+            label += 1
+    elif groupOpt == 1: # groups withing mesh
         for group in makeGroupsOfPoints(coords, groupRadiusPix):
             subLabel = 1
             groupID = id(group)
             for pt in group:
                 navPoints.append(NavFilePoint(f"{label}-{subLabel}", regis,
-                                              *pt, zHeight, drawnID,
-                                              groupID=groupID, acquire=acquire))
+                                             *pt, zHeight, drawnID,
+                                             groupID=groupID, acquire=acquire))
                 subLabel += 1
             label += 1
-    else:
+    elif groupOpt == 2: # entire mesh as group
+        subLabel = 1
         for pt in greedyPathThroughPts(coords):
-            navPoints.append(NavFilePoint(label, regis, *pt, zHeight, drawnID,
-                                          acquire=acquire))
-            label += 1
+            navPoints.append(NavFilePoint(f"{label}-{subLabel}", regis, *pt,
+                                          zHeight, drawnID, acquire=acquire))
+            subLabel += 1
+        label += 1
 
     numGroups = label - startLabel
     return navPoints, numGroups
