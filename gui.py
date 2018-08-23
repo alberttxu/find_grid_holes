@@ -237,15 +237,20 @@ class Sidebar(QWidget):
         buttonAppendNav.clicked.connect(self.appendToNavFile)
         self.cbAcquire = QCheckBox('Acquire')
         self.cbAcquire.setCheckState(Qt.Checked)
-        self.cbGroupPoints = QCheckBox('Group points')
+        self.cbGroupPoints = QCheckBox('Group points within mesh')
+        self.cbGroupPoints.clicked.connect(self._toggleGroupLayout)
+        self.groupRadiusLabel = QLabel('Group Radius')
         self.groupRadiusLineEdit = QLineEdit()
         self.groupRadiusLineEdit.returnPressed.connect(
                  lambda: self._setGroupRadius(self.groupRadiusLineEdit.text()))
         self._setGroupRadius(str(self.groupRadius))
+        self.groupRadiusLabelµm = QLabel('µm')
+        self.pixelSizeLabel = QLabel('Pixel Size')
         self.pixelSizeLineEdit = QLineEdit()
         self.pixelSizeLineEdit.returnPressed.connect(
                  lambda: self._setPixelSize(self.pixelSizeLineEdit.text()))
         self._setPixelSize(str(self.pixelSizeNm))
+        self.pixelSizeLabelnm = QLabel('nm')
 
         # layout
         vlay = QVBoxLayout()
@@ -260,18 +265,19 @@ class Sidebar(QWidget):
         vlay.addWidget(buttonPrintCoord)
         vlay.addWidget(buttonClearPts)
         vlay.addWidget(QLabel())
-        groupPtsLay = QGridLayout()
-        groupPtsLay.addWidget(self.cbGroupPoints, 1, 0)
-        groupPtsLay.addWidget(QLabel('Group Radius'), 2, 0)
-        groupPtsLay.addWidget(self.groupRadiusLineEdit, 2, 1)
-        groupPtsLay.addWidget(QLabel('µm'), 2, 2)
-        groupPtsLay.addWidget(QLabel('PixelSize'), 3, 0)
-        groupPtsLay.addWidget(self.pixelSizeLineEdit, 3, 1)
-        groupPtsLay.addWidget(QLabel('nm'), 3, 2)
         vlay.addWidget(buttonNewNavFile)
         vlay.addWidget(buttonAppendNav)
         vlay.addWidget(self.cbAcquire)
-        vlay.addLayout(groupPtsLay)
+        vlay.addWidget(self.cbGroupPoints)
+        self.groupPtsLay = QGridLayout()
+        self.groupPtsLay.addWidget(self.groupRadiusLabel, 1, 0)
+        self.groupPtsLay.addWidget(self.groupRadiusLineEdit, 1, 1)
+        self.groupPtsLay.addWidget(self.groupRadiusLabelµm, 1, 2)
+        self.groupPtsLay.addWidget(self.pixelSizeLabel, 2, 0)
+        self.groupPtsLay.addWidget(self.pixelSizeLineEdit, 2, 1)
+        self.groupPtsLay.addWidget(self.pixelSizeLabelnm, 2, 2)
+        vlay.addLayout(self.groupPtsLay)
+        self._toggleGroupLayout()
         vlay.addStretch(1)
         self.setLayout(vlay)
 
@@ -398,6 +404,23 @@ class Sidebar(QWidget):
         except:
             pass
 
+    def _toggleGroupLayout(self):
+        if self.cbGroupPoints.isChecked():
+            self.groupRadiusLabel.show()
+            self.groupRadiusLineEdit.show()
+            self.groupRadiusLabelµm.show()
+            self.pixelSizeLabel.show()
+            self.pixelSizeLineEdit.show()
+            self.pixelSizeLabelnm.show()
+        else:
+            self.groupRadiusLabel.hide()
+            self.groupRadiusLineEdit.hide()
+            self.groupRadiusLabelµm.hide()
+            self.pixelSizeLabel.hide()
+            self.pixelSizeLineEdit.hide()
+            self.pixelSizeLabelnm.hide()
+        self.repaint()
+
 
 class MainWidget(QWidget):
 
@@ -485,3 +508,4 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     w = MainWindow()
     sys.exit(app.exec_())
+
