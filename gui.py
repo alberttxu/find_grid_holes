@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QScrollArea, QPushButton, QFileDialog, QCheckBox,
                              QSlider, QLineEdit, QRubberBand, QMessageBox,
                              QInputDialog, QDoubleSpinBox, QComboBox)
-from PyQt5.QtGui import QImage, QPixmap, QKeySequence, QPalette, QBrush
+from PyQt5.QtGui import QImage, QPixmap, QKeySequence, QPainter
 from search import templateMatch
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
                      coordsToNavPoints)
@@ -118,6 +118,17 @@ class ImageViewer(QScrollArea):
 
 class ImageViewerCrop(ImageViewer):
 
+    class ColorRubberBand(QRubberBand):
+
+        def __init__(self, shape, parent):
+            super().__init__(shape, parent)
+
+        def paintEvent(self, event):
+            painter = QPainter()
+            painter.begin(self)
+            painter.fillRect(self.rect(), Qt.red)
+            painter.end()
+
     def __init__(self):
         super().__init__()
         self.searchedImg = QImage()
@@ -142,15 +153,11 @@ class ImageViewerCrop(ImageViewer):
     def mousePressEvent(self, mouseEvent):
         self.shiftPressed = QApplication.keyboardModifiers() == Qt.ShiftModifier
         self.center = mouseEvent.pos()
-        self.rband = QRubberBand(QRubberBand.Rectangle, self)
+        self.rband = self.ColorRubberBand(QRubberBand.Rectangle, self)
         self.rband.setGeometry(QRect(self.center, QSize()))
         self.rband.show()
 
     def mouseMoveEvent(self, mouseEvent):
-        # make rubber band blue (only works on windows os)
-        palette = QPalette()
-        palette.setBrush(QPalette.Highlight, QBrush(Qt.blue))
-
         # unnormalized QRect can have negative width/height
         crop = QRect(2*self.center - mouseEvent.pos(),
                      mouseEvent.pos()).normalized()
@@ -161,7 +168,7 @@ class ImageViewerCrop(ImageViewer):
                                    largerSide, largerSide)
         else:
             self.rband.setGeometry(crop)
-        self.rband.setPalette(palette)
+        self.repaint()
 
     def mouseReleaseEvent(self, mouseEvent):
         self.rband.hide()
