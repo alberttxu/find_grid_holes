@@ -54,7 +54,10 @@ def isValidLabel(data: 'list', label: str):
 
 def sectionAsDict(data: 'list', label: str):
     start = data.index(f"[Item = {label}]") + 1
-    section = data[start : data.index('', start)]
+    try:
+        section = data[start : data.index('', start)]
+    except ValueError: # end of file reached
+        section = data[start:]
 
     result = {}
     for line in section:
