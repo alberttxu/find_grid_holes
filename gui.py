@@ -11,7 +11,7 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QMainWindow, QAction,
                              QScrollArea, QPushButton, QFileDialog, QCheckBox,
                              QSlider, QLineEdit, QRubberBand, QMessageBox,
                              QInputDialog, QDoubleSpinBox, QComboBox)
-from PyQt5.QtGui import QImage, QPixmap, QKeySequence, QPainter
+from PyQt5.QtGui import QImage, QPixmap, QKeySequence, QPainter, QBrush, QColor
 from search import templateMatch
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
                      coordsToNavPoints)
@@ -126,7 +126,7 @@ class ImageViewerCrop(ImageViewer):
         def paintEvent(self, event):
             painter = QPainter()
             painter.begin(self)
-            painter.fillRect(self.rect(), Qt.red)
+            painter.fillRect(self.rect(), QBrush(QColor(255, 0, 0, 128)))
             painter.end()
 
     def __init__(self):
