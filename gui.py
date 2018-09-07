@@ -16,6 +16,8 @@ from search import templateMatch
 from autodoc import (isValidAutodoc, isValidLabel, sectionAsDict,
                      coordsToNavPoints)
 
+# Unset PIL max size
+Image.MAX_IMAGE_PIXELS = None
 
 # image data manipulation
 def npToQImage(ndArr):
